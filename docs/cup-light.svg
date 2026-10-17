@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fbf7ee"/><stop offset="1" stop-color="#ece3cf"/></linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f6cf6c"/><stop offset=".55" stop-color="#d9a441"/><stop offset="1" stop-color="#a86f12"/></linearGradient>
+    <linearGradient id="water" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7fe3f7"/><stop offset="1" stop-color="#1fb3d6"/></linearGradient>
+    <radialGradient id="glow" cx=".5" cy=".62" r=".5"><stop offset="0" stop-color="#d9a441" stop-opacity=".35"/><stop offset="1" stop-color="#d9a441" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect x="64" y="64" width="896" height="896" rx="200" fill="url(#bg)" stroke="#d9cdb3" stroke-width="6"/>
+  <circle cx="512" cy="600" r="380" fill="url(#glow)"/>
+  <path d="M560 150c0 90-46 130-46 236" fill="none" stroke="url(#water)" stroke-width="54" stroke-linecap="round"/>
+  <path d="M250 430h460v190a200 200 0 0 1-200 200h-60a200 200 0 0 1-200-200z" fill="url(#gold)" stroke="#7a4f00" stroke-width="22" stroke-linejoin="round"/>
+  <path d="M712 480h52a92 92 0 0 1 0 184h-56" fill="none" stroke="#c7891f" stroke-width="54" stroke-linecap="round"/>
+  <ellipse cx="480" cy="436" rx="210" ry="22" fill="#7fe3f7" opacity=".85"/>
+  <path d="M300 500c0 80 10 150 60 200" fill="none" stroke="#fff3cf" stroke-opacity=".55" stroke-width="26" stroke-linecap="round"/>
+  <path d="M300 880h360" stroke="#a86f12" stroke-width="34" stroke-linecap="round"/>
+</svg>

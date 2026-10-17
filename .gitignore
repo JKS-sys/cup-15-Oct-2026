@@ -1,0 +1,11 @@
+/target
+/release
+/lxtest
+/.lxout
+/ui/node_modules
+/ui/dist
+/docs/shots/*.png
+.env
+*.log
+.DS_Store
+/update.sh

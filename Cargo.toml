@@ -1,0 +1,33 @@
+[package]
+name = "cup"
+version = "1.0.0"
+edition = "2021"
+description = "Cup — a desktop app store and manager for the Pour package manager"
+authors = ["Jagadeesh Kumar S <JKS.sys@icloud.com>"]
+license-file = "LICENSE"
+homepage = "https://ipconfig.co.network/cup"
+repository = "https://github.com/JKS-sys/cup-15-Oct-2026"
+publish = false
+build = "build.rs"
+
+[dependencies]
+miniz_oxide = { version = "0.8", default-features = false, features = ["with-alloc"] }
+
+[build-dependencies]
+cc = "1"
+miniz_oxide = "0.8"
+pkg-config = "0.3"
+embed-resource = "3"
+
+[profile.release]
+opt-level = "z"
+lto = "fat"
+codegen-units = 1
+panic = "unwind"
+strip = true
+debug = false
+incremental = false
+
+[profile.release.build-override]
+opt-level = 0
+codegen-units = 256

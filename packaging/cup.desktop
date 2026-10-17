@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Cup
+GenericName=App store for Pour
+Comment=Find, install, update and tidy apps and tools with the Pour package manager
+Exec=cup
+Icon=cup
+Terminal=false
+Categories=System;PackageManager;Utility;
+Keywords=pour;packages;apps;install;update;brewfile;
+StartupWMClass=cup
