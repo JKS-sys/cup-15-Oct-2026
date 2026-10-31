@@ -89,6 +89,12 @@ await page.click('button:has-text("Take snapshot")');
 await page.waitForSelector('.rows .row:has-text("snapshot-")', { timeout: 30000 });
 check(true, 'snapshot taken');
 
+// Cup's own update check reads the published feed.
+await page.click('.nav[title="Settings"]');
+await page.click('button:has-text("Check for a new Cup")');
+await page.waitForFunction(() => /is out|newest Cup/.test(document.querySelector('.settings')?.textContent || ''), null, { timeout: 30000 });
+check(true, 'Check for a new Cup answers from the release feed');
+
 // Light theme.
 await page.click('.nav[title="Settings"]');
 await page.selectOption('.opt:has-text("Theme") select', 'light');

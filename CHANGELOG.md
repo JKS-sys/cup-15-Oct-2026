@@ -1,8 +1,8 @@
 # Changelog
 
 ## Unreleased
-
-## Cup 1.0.1 — 31-Oct-2026
+- "Check for a new Cup" reads the published release feed on GitHub (the site feed only as a fallback) and compares versions properly; Cup also mentions a newer version when it starts.
+- "Update Cup with Pour" installs the newest Cup with Pour even when this copy was not installed by Pour, and upgrades it when it was.
 - Installed shows how much space each app and tool takes, the total on disk, and the size of a selection; the details sheet shows it too.
 - The copy buttons now copy through the system clipboard, so the install command really lands on the clipboard.
 - Drag down the checkboxes to select many rows; drag again to deselect them (Shift-click still selects a range).

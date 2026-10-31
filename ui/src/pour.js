@@ -174,3 +174,18 @@ export function search(list, q, { kind, cat: c } = {}) {
 
 export const hostOf = (u) => { try { return new URL(u).hostname; } catch { return ''; } };
 export const installLine = (p) => (p.kind === 'cask' ? `pour install --cask ${p.name}` : `pour install ${p.name}`);
+
+// ---- Cup's own releases: GitHub first (where releases are published), the site as a fallback.
+export const CUP_FEEDS = ['https://github.com/JKS-sys/cup-15-Oct-2026/releases/latest/download/latest.json', `${HOST}/updates/cup/latest.json`];
+export async function latestCup() {
+  for (const [i, u] of CUP_FEEDS.entries()) {
+    try { const r = await get(u, `cup-latest-${i}`, 0); if (r.ok) { const v = JSON.parse(r.text).version; if (v) return String(v).replace(/^v/, ''); } } catch { /* next feed */ }
+  }
+  return null;
+}
+export function newerThan(a, b) {
+  const p = (x) => String(x).split(/[.-]/).map((n) => parseInt(n, 10) || 0);
+  const x = p(a), y = p(b);
+  for (let i = 0; i < Math.max(x.length, y.length); i++) { if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); }
+  return false;
+}

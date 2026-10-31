@@ -47,5 +47,6 @@ ok(m.categorise({ name: 'ollama', kind: 'cask', desc: 'Get up and running with l
 const list = [{ name: 'jq', kind: 'formula', desc: 'Lightweight JSON processor' }, { name: 'jqp', kind: 'formula', desc: 'TUI playground for jq' }, { name: 'gojq', kind: 'formula', desc: 'Pure Go jq' }];
 ok(m.search(list, 'jq')[0].name === 'jq', 'exact name ranks first');
 ok(m.search(list, 'json processor').length === 1, 'all words must match');
+ok(m.newerThan('1.0.10', '1.0.9') && !m.newerThan('1.0.1', '1.0.1') && !m.newerThan('1.0.0', '1.0.1'), 'version comparison');
 console.log(fails ? `${fails} problem(s)` : 'units: all good');
 process.exit(fails ? 1 : 0);

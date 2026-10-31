@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { Icon, LOGO } from './icons.jsx';
 import { app, install, upgrade, uninstall, reinstall, refreshCatalogue, refreshInstalled, refreshOutdated, refreshTaps, refreshEnv, simple, isInstalled, human, sizeOf } from './data.js';
 import { copyText } from './bridge.js';
-import { CATEGORIES, catName, catHue, search, fame, parseDoctor, installLine } from './pour.js';
+import { CATEGORIES, catName, catHue, search, fame, parseDoctor, installLine, latestCup, newerThan } from './pour.js';
 import { PkgCard, PkgRow, PkgIcon, KindBadge, PkgAction, openSheet, LogBox, Empty, useMore, LayoutPick, pkgMenu, confirmRemove, ask, hueVar, CopyBtn, contextMenu } from './parts.jsx';
 import { jobs, runJob, toast, clearJobs } from './jobs.js';
 import { settings, setSetting, useSettings, DEFAULTS } from './store.js';
@@ -423,9 +423,19 @@ export function Settings() {
   const [cupNews, setCupNews] = useState('');
   const set = (k) => (e) => { const v = e.currentTarget.type === 'checkbox' ? e.currentTarget.checked : e.currentTarget.value; setSetting(k, v); sfx(typeof v === 'boolean' ? (v ? 'on' : 'off') : 'select'); };
   const checkCup = async () => {
-    const r = await get('https://ipconfig.co.network/updates/cup/latest.json', 'cup-latest', 0);
-    try { const v = JSON.parse(r.text).version; setCupNews(v && v !== st.env?.version ? `Cup ${v} is out.` : 'You have the newest Cup.'); } catch { setCupNews('Could not reach the update feed.'); }
-    sfx('found');
+    setCupNews('Checking…');
+    const v = await latestCup();
+    if (!v) { setCupNews('Could not reach the update feed.'); sfx('error'); return; }
+    const newer = newerThan(v, st.env?.version || '0');
+    setCupNews(newer ? `Cup ${v} is out — you have ${st.env?.version}.` : `You have the newest Cup (${st.env?.version}).`);
+    sfx(newer ? 'updates' : 'found');
+  };
+  const updateCup = async (e) => {
+    // Upgrade when Pour installed Cup; otherwise Pour installs the newest build over this one.
+    const mine = app.get().installed.casks.some((c) => c.name === 'cup');
+    await cap(['update']).catch(() => {});
+    const j = await runJob(mine ? ['upgrade', '--cask', '--greedy', 'cup'] : ['install', '--cask', '--force', 'cup'], { title: 'Update Cup', start: 'upgrade', done: 'poured', at: e.currentTarget });
+    if (j.status === 'ok' && await ask({ title: 'Restart Cup?', body: <p>The new Cup starts when this one closes.</p>, ok: 'Restart' })) relaunch();
   };
   return (
     <div class="page settings">
@@ -452,7 +462,7 @@ export function Settings() {
         <Opt label="Clean up after upgrading"><input type="checkbox" checked={s.autoCleanup} onChange={set('autoCleanup')} /></Opt>
         <Opt label="Ask before removing"><input type="checkbox" checked={s.confirmUninstall} onChange={set('confirmUninstall')} /></Opt>
         <Opt label={`Cup ${st.env?.version || ''}`} hint={cupNews || (s.lastCheck ? `Packages last checked ${new Date(s.lastCheck).toLocaleString()}` : '')}>
-          <div class="row-btns"><button class="btn sm ghost" onClick={checkCup}>Check for a new Cup</button><button class="btn sm" onClick={(e) => runJob(['upgrade', '--cask', 'cup'], { title: 'Update Cup', start: 'upgrade', done: 'poured', at: e.currentTarget }).then(async (j) => { if (j.status === 'ok' && await ask({ title: 'Restart Cup?', body: <p>The new Cup starts when this one closes.</p>, ok: 'Restart' })) relaunch(); })}>Update Cup with Pour</button></div>
+          <div class="row-btns"><button class="btn sm ghost" onClick={checkCup}>Check for a new Cup</button><button class="btn sm" onClick={updateCup}>Update Cup with Pour</button></div>
         </Opt>
       </section>
       <section class="card"><h3>Privacy</h3>

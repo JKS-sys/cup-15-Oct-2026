@@ -6,10 +6,10 @@ import { Icon, Logo, LOGO } from './icons.jsx';
 import { app, refreshAll, refreshCatalogue, refreshEnv, refreshOutdated, scheduleChecks, dailyPing, reportCrash, install, upgrade } from './data.js';
 import { loadSettings, settings, setSetting, useSettings } from './store.js';
 import { sfx } from './sfx.js';
-import { search as find, installLine } from './pour.js';
+import { search as find, installLine, latestCup, newerThan } from './pour.js';
 import { Sheet, Dialog, Toasts, Menu, Activity, PkgIcon, openSheet, ask, contextMenu } from './parts.jsx';
 import { Discover, Browse, Installed, Updates, Taps, Bundle, Care, Log, Settings, About, Setup } from './views.jsx';
-import { jobs, runJob } from './jobs.js';
+import { jobs, runJob, toast } from './jobs.js';
 import { open, log } from './bridge.js';
 
 const PAGES = [
@@ -217,6 +217,11 @@ async function boot2() {
   if (s.checkAtStart) refreshOutdated({ fetchIndex: Date.now() - s.lastCheck > 3600e3, quiet: true });
   scheduleChecks();
   setTimeout(dailyPing, 20000);
+  // Tell the owner when a newer Cup is out (once a start).
+  setTimeout(async () => {
+    const v = await latestCup().catch(() => null), have = app.get().env?.version;
+    if (v && have && newerThan(v, have)) toast('ok', `Cup ${v} is out — Settings → Update Cup with Pour`);
+  }, 8000);
 }
 
 async function boot() {
