@@ -38,6 +38,14 @@ if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
   CA_SRC="${CUP_EXTRA_CA_FILE:-}"; [ -z "$CA_SRC" ] && [ -s /etc/ssl/cert.pem ] && CA_SRC=/etc/ssl/cert.pem
   SECRET=(); [ -n "$CA_SRC" ] && SECRET=(--secret "id=ca,src=$CA_SRC")
   NET=(); [ -n "${CUP_DOCKER_NET:-}" ] && NET=(--network "$CUP_DOCKER_NET")
+  # BuildKit (needed for --secret) comes from the buildx plugin: fetch it through Pour when missing.
+  if ! docker buildx version >/dev/null 2>&1; then
+    echo "  installing docker-buildx (BuildKit) with Pour…"
+    pour install docker-buildx >/dev/null 2>&1 || pour upgrade docker-buildx >/dev/null 2>&1 || true
+    BX="$(pour --prefix 2>/dev/null)/bin/docker-buildx"
+    if [ -x "$BX" ]; then mkdir -p "$HOME/.docker/cli-plugins"; ln -sf "$BX" "$HOME/.docker/cli-plugins/docker-buildx"; fi
+    docker buildx version >/dev/null 2>&1 || { echo "  ✗ docker-buildx is missing — run: pour install docker-buildx && mkdir -p ~/.docker/cli-plugins && ln -sf \"\$(pour --prefix)/bin/docker-buildx\" ~/.docker/cli-plugins/"; exit 1; }
+  fi
   DOCKER_BUILDKIT=1 docker build --platform "$PLAT" ${NET[@]+"${NET[@]}"} ${SECRET[@]+"${SECRET[@]}"} \
     --build-arg BASE="$BASE" \
     --build-arg DEB_MIRRORS="${CUP_DEB_MIRRORS:-http://deb.debian.org https://deb.debian.org https://mirrors.edge.kernel.org https://ftp.in.debian.org}" \
