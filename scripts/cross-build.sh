@@ -130,10 +130,10 @@ docker run --rm --platform "$PLAT" ${NET[@]+"${NET[@]}"} \
         AR_x86_64_pc_windows_gnu=x86_64-w64-mingw32-ar RC_x86_64_pc_windows_gnu=x86_64-w64-mingw32-windres \
         CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER=x86_64-w64-mingw32-gcc-posix \
         cargo build --release --target x86_64-pc-windows-gnu
-      w=$(mktemp -d); cp /target/x86_64-pc-windows-gnu/release/cup.exe assets/cup.ico LICENSE "$w/"
+      w=$(mktemp -d); cp /target/x86_64-pc-windows-gnu/release/cup.exe assets/cup.ico LICENSE THIRD-PARTY-NOTICES.txt "$w/"
       echo "  ✓ windows x64: $(stat -c %s "$w/cup.exe") bytes"
       makensis -V2 -DVERSION="$VERSION" -DSRC="$w" -DOUT="/src/.xout/Cup_${VERSION}_x64-setup.exe" packaging/installer.nsi
-      (cd "$w" && zip -q -9 "/src/.xout/Cup_${VERSION}_windows-x64-portable.zip" cup.exe LICENSE)
+      (cd "$w" && zip -q -9 "/src/.xout/Cup_${VERSION}_windows-x64-portable.zip" cup.exe LICENSE THIRD-PARTY-NOTICES.txt)
       cp "$w/cup.exe" /src/.xout/cup-windows-x64.exe
     fi
     if has freebsd && [ ! -d /fbsd/usr/include ]; then
@@ -157,12 +157,12 @@ docker run --rm --platform "$PLAT" ${NET[@]+"${NET[@]}"} \
 for a in amd64 arm64; do
   [ -f ".xout/cup-linux-$a" ] || continue
   node scripts/deb.mjs ".xout/cup-linux-$a" "$a" "$VERSION" "$OUT/cup_${VERSION}_${a}.deb"
-  t=$(mktemp -d); cp ".xout/cup-linux-$a" "$t/cup"; cp LICENSE packaging/cup.desktop assets/cup-256.png "$t/"
+  t=$(mktemp -d); cp ".xout/cup-linux-$a" "$t/cup"; cp LICENSE THIRD-PARTY-NOTICES.txt packaging/cup.desktop assets/cup-256.png "$t/"
   arch=$( [ $a = amd64 ] && echo x86_64 || echo aarch64 )
   tar -czf "$OUT/Cup_${VERSION}_linux-${arch}.tar.gz" -C "$t" . && rm -rf "$t"
 done
 if [ -f .xout/cup-freebsd-x86_64 ]; then
-  t=$(mktemp -d); cp .xout/cup-freebsd-x86_64 "$t/cup"; cp LICENSE packaging/cup.desktop assets/cup-256.png "$t/"
+  t=$(mktemp -d); cp .xout/cup-freebsd-x86_64 "$t/cup"; cp LICENSE THIRD-PARTY-NOTICES.txt packaging/cup.desktop assets/cup-256.png "$t/"
   printf 'Cup for FreeBSD 14 (x86_64)\n\nNeeds: pkg install webkit2-gtk_41 gtk3 curl\nRun: ./cup\n' >"$t/README.txt"
   tar -czf "$OUT/Cup_${VERSION}_freebsd-x86_64.tar.gz" -C "$t" . && rm -rf "$t"
 fi

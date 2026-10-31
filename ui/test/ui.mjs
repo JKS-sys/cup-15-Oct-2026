@@ -7,7 +7,7 @@ let fails = 0;
 const check = (c, msg) => { if (!c) { fails++; console.log(`  ✗ ${msg}`); } else console.log(`  ✓ ${msg}`); };
 const shots = process.argv.includes('--shots');
 
-const { browser, page, errors, opened } = await launch({ store: { settings: { splash: true, sound: false, motion: 'subtle' } } });
+const { browser, page, errors, opened, copied } = await launch({ store: { settings: { splash: true, sound: false, motion: 'subtle' } } });
 await page.waitForSelector('#splash');
 check(await page.locator('.sp-by').textContent() === 'By Jagadeesh Kumar S', 'splash byline');
 await page.waitForSelector('#splash', { state: 'detached', timeout: 6000 });
@@ -35,6 +35,9 @@ await page.waitForSelector('.sheet h2');
 check((await page.locator('.sheet h2').textContent()).includes('tree'), 'palette opens the sheet for tree');
 await page.waitForSelector('.sheet .facts');
 if (shots) await page.screenshot({ path: join(shotDir, 'sheet.png') });
+await page.click('.sheet .cmdline .icon-btn');
+await sleep(300);
+check(copied.includes('pour install tree'), 'copy button copies the install command');
 
 // Install through Pour, see it under Installed, remove it again.
 const getBtn = page.locator('.sheet .sh-actions button', { hasText: 'Get it' });
@@ -63,6 +66,22 @@ await page.click('.nav[title="Log"]');
 // The log is empty when the install was skipped, so only open an entry when there is one.
 if (await page.locator('.logbox .logbar').count()) await page.locator('.logbox .logbar').first().click();
 if (shots) await page.screenshot({ path: join(shotDir, 'log.png') });
+
+// Sizes and drag-select on Installed (jq and oniguruma are installed in the test prefix).
+await page.click('.nav[title="Installed"]');
+await page.waitForSelector('.row.pk .size', { timeout: 20000 });
+check(true, 'installed rows show their size on disk');
+const boxes = page.locator('.row.pk .chk-hit');
+if (await boxes.count() >= 2) {
+  const a = await boxes.nth(0).boundingBox(), b = await boxes.nth(1).boundingBox();
+  await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2); await page.mouse.down();
+  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 6 }); await page.mouse.up();
+  check(await page.locator('.row.pk.on').count() === 2, 'drag down the boxes selects two rows');
+  await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2); await page.mouse.down();
+  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 6 }); await page.mouse.up();
+  check(await page.locator('.row.pk.on').count() === 0, 'dragging again deselects them');
+  check(!(await page.locator('.sheet').count()), 'dragging does not open a package');
+}
 
 // Snapshot.
 await page.click('.nav[title="Brewfile"]');

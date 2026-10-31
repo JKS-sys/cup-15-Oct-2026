@@ -1,7 +1,8 @@
 // Cup — the pages. Copyright (c) 2026 Jagadeesh Kumar S. All rights reserved.
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { Icon, LOGO } from './icons.jsx';
-import { app, install, upgrade, uninstall, reinstall, refreshCatalogue, refreshInstalled, refreshOutdated, refreshTaps, refreshEnv, simple, isInstalled } from './data.js';
+import { app, install, upgrade, uninstall, reinstall, refreshCatalogue, refreshInstalled, refreshOutdated, refreshTaps, refreshEnv, simple, isInstalled, human, sizeOf } from './data.js';
+import { copyText } from './bridge.js';
 import { CATEGORIES, catName, catHue, search, fame, parseDoctor, installLine } from './pour.js';
 import { PkgCard, PkgRow, PkgIcon, KindBadge, PkgAction, openSheet, LogBox, Empty, useMore, LayoutPick, pkgMenu, confirmRemove, ask, hueVar, CopyBtn, contextMenu } from './parts.jsx';
 import { jobs, runJob, toast, clearJobs } from './jobs.js';
@@ -161,10 +162,35 @@ export function Installed() {
     } else n.has(k) ? n.delete(k) : n.add(k);
     last.current = k; setSel(n); sfx('select');
   };
+  // Drag down the checkboxes to select or deselect many: the first box decides which.
+  const dragRef = useRef(null);
+  const drag = {
+    start(p, e) {
+      const k = p.kind + p.name;
+      if (e.shiftKey) { toggle(p, e); return; }
+      const mode = !sel.has(k);
+      dragRef.current = { mode, seen: new Set([k]) };
+      last.current = k;
+      setSel((s) => { const n = new Set(s); mode ? n.add(k) : n.delete(k); return n; });
+      sfx(mode ? 'select' : 'off');
+      document.body.classList.add('dragsel');
+      const end = () => { dragRef.current = null; document.body.classList.remove('dragsel'); removeEventListener('pointerup', end); removeEventListener('pointercancel', end); };
+      addEventListener('pointerup', end); addEventListener('pointercancel', end);
+    },
+    over(p) {
+      const d = dragRef.current; const k = p.kind + p.name;
+      if (!d || d.seen.has(k)) return;
+      d.seen.add(k);
+      setSel((s) => { const n = new Set(s); d.mode ? n.add(k) : n.delete(k); return n; });
+      sfx('tick');
+    },
+  };
+  const totalSize = all.reduce((t, p) => t + (st.sizes?.[`${p.kind}:${p.name}`] || 0), 0);
+  const chosenSize = chosen.reduce((t, p) => t + (st.sizes?.[`${p.kind}:${p.name}`] || 0), 0);
   const ctx = (e, p) => pkgMenu(e, p, ['-', { label: sel.has(p.kind + p.name) ? 'Unselect' : 'Select', icon: 'check', run: () => toggle(p) }]);
   return (
     <div class="page">
-      <H title="Installed" sub={`${st.installed.casks.length} apps · ${st.installed.formulae.length} tools${hbCount ? ` · ${hbCount} more from Homebrew` : ''}`}>
+      <H title="Installed" sub={`${st.installed.casks.length} apps · ${st.installed.formulae.length} tools${totalSize ? ` · ${human(totalSize)} on disk` : ''}${hbCount ? ` · ${hbCount} more from Homebrew` : ''}`}>
         <Search value={q} onInput={setQ} placeholder="Filter installed" />
         <button class="btn ghost" onClick={() => { refreshInstalled(); sfx('fresh'); }}><Icon n="refresh" size={16} />Refresh</button>
       </H>
@@ -177,14 +203,14 @@ export function Installed() {
       {tab === 'homebrew' ? <HomebrewTab hb={hb} /> : (
         <>
           <div class={`bulk ${chosen.length ? 'on' : ''}`}>
-            <label class="tick"><input type="checkbox" checked={chosen.length > 0 && chosen.length === list.length} onChange={(e) => { setSel(e.currentTarget.checked ? new Set(list.map((p) => p.kind + p.name)) : new Set()); sfx('selectAll'); }} />{chosen.length ? `${chosen.length} selected` : 'Select all'}</label>
+            <label class="tick"><input type="checkbox" checked={chosen.length > 0 && chosen.length === list.length} onChange={(e) => { setSel(e.currentTarget.checked ? new Set(list.map((p) => p.kind + p.name)) : new Set()); sfx('selectAll'); }} />{chosen.length ? `${chosen.length} selected${chosenSize ? ` · ${human(chosenSize)}` : ''}` : 'Select all'}</label>
             <span class="grow" />
             <button class="btn sm" disabled={!chosen.length} onClick={(e) => upgrade(chosen, e.currentTarget).then(() => setSel(new Set()))}><Icon n="updates" size={14} />Upgrade</button>
             <button class="btn sm" disabled={!chosen.length} onClick={(e) => reinstall(chosen, e.currentTarget)}><Icon n="refresh" size={14} />Pour again</button>
             <button class="btn sm danger" disabled={!chosen.length} onClick={(e) => confirmRemove(chosen, e.currentTarget).then(() => setSel(new Set()))}><Icon n="trash" size={14} />Remove</button>
           </div>
           {st.loadingInstalled && !all.length ? <Loading what="what is installed" /> : list.length ? (
-            <div class="rows" data-layout={s.installedLayout}>{list.map((p) => <PkgRow p={p} checked={sel.has(p.kind + p.name)} onCheck={(e) => toggle(p, e)} onCtx={ctx} key={p.kind + p.name} extra={p.kind === 'formula' && !p.onRequest ? <span class="badge muted">needed by others</span> : null} />)}</div>
+            <div class="rows" data-layout={s.installedLayout}>{list.map((p) => <PkgRow p={p} checked={sel.has(p.kind + p.name)} onCheck={(e) => toggle(p, e)} drag={drag} onCtx={ctx} key={p.kind + p.name} extra={p.kind === 'formula' && !p.onRequest ? <span class="badge muted">needed by others</span> : null} />)}</div>
           ) : <Empty title={q ? 'Nothing matches' : 'Nothing here yet'}><p class="muted">{q ? 'Try another word.' : 'Pick something in Discover and press Get.'}</p><button class="btn acc" onClick={() => app.set({ page: 'discover' })}>Open Discover</button></Empty>}
         </>
       )}
@@ -209,7 +235,7 @@ function HomebrewTab({ hb }) {
           }}>Move to Pour</button>
         </div>
       </div>
-      <div class="rows">{items.map((x) => <div class="row"><b>{x.name}</b><span class="muted">{x.kind === 'cask' ? 'app' : 'tool'}</span><span class="grow" /><span class="ver ct-n">{x.version}</span>{x.inPour ? <span class="badge b-ok">in Pour</span> : <span class="badge muted">Homebrew only</span>}</div>)}</div>
+      <div class="rows">{items.map((x) => <div class="row"><b>{x.name}</b><span class="muted">{x.kind === 'cask' ? 'app' : 'tool'}</span><span class="grow" />{sizeOf(x, true) != null && <span class="size ct-n">{human(sizeOf(x, true))}</span>}<span class="ver ct-n">{x.version}</span>{x.inPour ? <span class="badge b-ok">in Pour</span> : <span class="badge muted">Homebrew only</span>}</div>)}</div>
     </>
   );
 }
@@ -251,7 +277,7 @@ export function Taps() {
       </div>
       <div class="rows">
         {st.taps.map((t) => (
-          <div class="row" onContextMenu={(e) => contextMenu(e, [{ label: 'Copy address', icon: 'copy', run: () => navigator.clipboard?.writeText(t.url) }, { label: 'Open address', icon: 'globe', run: () => open(t.url) }])}>
+          <div class="row" onContextMenu={(e) => contextMenu(e, [{ label: 'Copy address', icon: 'copy', run: () => copyText(t.url) }, { label: 'Open address', icon: 'globe', run: () => open(t.url) }])}>
             <Icon n="taps" /><div class="row-main"><b>{t.name}</b><span class="muted clamp">{t.url}</span></div>
             <button class="btn sm danger" onClick={async (e) => { const at = e.currentTarget; if (await ask({ title: `Remove the ${t.name} tap?`, body: <p>Packages from it stay installed; Pour just stops reading it.</p>, ok: 'Remove', danger: true })) { await runJob(['tap', 'remove', t.name], { title: `Untap ${t.name}`, start: 'untap', done: 'untap', at }); refreshTaps(); } }}>Remove</button>
           </div>

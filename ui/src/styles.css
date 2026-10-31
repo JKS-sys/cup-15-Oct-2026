@@ -285,3 +285,9 @@ body[data-motion=lively] .pk.card:hover{transform:translateY(-4px) rotate(-.3deg
   .pk-d{-webkit-line-clamp:1;min-height:0}
   .sp-name{font-size:42px}.sp-cup svg{width:100px;height:100px}
 }
+
+.chk-hit{display:inline-grid;place-items:center;width:30px;height:30px;margin:-6px -4px -6px -8px;cursor:pointer;touch-action:none;flex:0 0 auto}
+.chk-hit .chk{pointer-events:none}
+.size{font-size:12px;white-space:nowrap;min-width:56px;text-align:right}
+body.dragsel,body.dragsel *{user-select:none!important;cursor:cell!important}
+.sh-size{font-weight:700}

@@ -42,6 +42,7 @@ export async function launch({ width = 1280, height = 800, pour = true, scheme =
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
   page.on('console', (m) => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errors.push(`console: ${m.text()}`); });
   const opened = [];
+  const copied = [];
   const procs = new Map();
   await page.exposeBinding('__cupNode', async (_src, a) => {
     const [op, ...x] = a;
@@ -80,6 +81,8 @@ export async function launch({ width = 1280, height = 800, pour = true, scheme =
       case 'readfile': return existsSync(x[0]) ? ok(readFileSync(x[0], 'utf8')) : no('file not found');
       case 'delsnap': try { unlinkSync(join(DATA, 'snapshots', x[0])); } catch { /* gone */ } return ok(true);
       case 'open': opened.push(x[0]); return ok(true);
+      case 'copy': copied.push(x[0]); return ok(true);
+      case 'du': { const r = await run('du', ['-sk', '--', ...x.flatMap((i) => i.split('|').slice(1))], process.env); const out = {}; const lines = r.out.trim().split('\n'); let n = 0; for (const it of x) { const k = it.split('|'); let t = 0; for (let i = 1; i < k.length; i++) t += (Number((lines[n++] || '0').split(/\s/)[0]) || 0) * 1024; out[k[0]] = t; } return ok(out); }
       case 'post': case 'badge': case 'title': case 'quit': case 'relaunch': return ok(true);
       default: return no('unknown request');
     }
@@ -90,7 +93,7 @@ export async function launch({ width = 1280, height = 800, pour = true, scheme =
   });
   if (demo) await page.addInitScript(() => { window.__CUP_DEMO__ = true; });
   await page.goto(`file://${join(here, '..', 'dist', 'index.html')}`);
-  return { browser, page, errors, opened, store };
+  return { browser, page, errors, opened, copied, store };
 }
 
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

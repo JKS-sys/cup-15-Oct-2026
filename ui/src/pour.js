@@ -25,8 +25,8 @@ export async function installed() {
     formulae: (j.formulae || []).map((f) => ({ name: f.name, kind: 'formula', version: f.version, onRequest: !!f.on_request, active: f.active !== false, deps: f.deps || [] })),
     casks: (j.casks || []).map((c) => ({ name: c.token, kind: 'cask', version: c.version, artifacts: c.artifacts || [] })),
     homebrew: {
-      formulae: (j.homebrew?.formulae || []).map((f) => ({ name: f.name, kind: 'formula', version: f.version, inPour: !!f.in_pour, onRequest: !!f.on_request })),
-      casks: (j.homebrew?.casks || []).map((c) => ({ name: c.token, kind: 'cask', version: c.version, inPour: !!c.in_pour })),
+      formulae: (j.homebrew?.formulae || []).map((f) => ({ name: f.name, kind: 'formula', version: f.version, inPour: !!f.in_pour, onRequest: !!f.on_request, path: f.path })),
+      casks: (j.homebrew?.casks || []).map((c) => ({ name: c.token, kind: 'cask', version: c.version, inPour: !!c.in_pour, path: c.path })),
     },
   };
 }
@@ -89,6 +89,15 @@ export async function catalogue(force = false) {
   }
   let apps = [];
   try { apps = a.ok ? (JSON.parse(a.text).apps || []) : []; } catch { /* offline */ }
+  // The dashboard decides: only the creator's apps registered and switched on there are shown.
+  try {
+    const d = await get(`${HOST}/api/v1/apps`, 'dash-apps', force ? 0 : 900);
+    const list = d.ok ? (JSON.parse(d.text).apps || []) : null;
+    if (list) {
+      const on = new Set(list.filter((x) => !/pending|off|hidden|disabled|inactive/i.test(String(x.status ?? '')) && x.active !== false && x.enabled !== false).map((x) => x.id || x.app || x.slug));
+      apps = apps.filter((x) => on.has(x.token));
+    }
+  } catch { /* dashboard unreachable: keep Pour's list */ }
   for (const x of apps) rows.set(`cask:${x.token}`, { name: x.token, title: x.name, kind: 'cask', desc: x.desc || '', version: x.version || '', homepage: x.homepage || '', source: 'creator' });
   const list = [...rows.values()];
   for (const r of list) r.cat = categorise(r);

@@ -52,4 +52,12 @@ export const snapshots = () => raw('list');
 export const readBrewfile = (p) => raw('readfile', p);
 export const deleteSnapshot = (n) => raw('delsnap', n);
 export const quit = () => raw('quit');
+/** Copies through the system clipboard; the browser APIs are only a fallback. */
+export async function copyText(text) {
+  try { if (await raw('copy', text)) return true; } catch { /* try the page's own */ }
+  try { await navigator.clipboard.writeText(text); return true; } catch { /* last resort below */ }
+  const t = document.createElement('textarea'); t.value = text; t.style.position = 'fixed'; t.style.opacity = '0';
+  document.body.append(t); t.select(); let ok = false; try { ok = document.execCommand('copy'); } catch { /* no */ } t.remove(); return ok;
+}
+export const sizes = (items) => raw('du', ...items).catch(() => ({}));
 export const relaunch = () => raw('relaunch');

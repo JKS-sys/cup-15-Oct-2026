@@ -1,6 +1,11 @@
 # Changelog
 
 ## Unreleased
+- Installed shows how much space each app and tool takes, the total on disk, and the size of a selection; the details sheet shows it too.
+- The copy buttons now copy through the system clipboard, so the install command really lands on the clipboard.
+- Drag down the checkboxes to select many rows; drag again to deselect them (Shift-click still selects a range).
+- Releases register and switch on every app Cup lists in the ipconfig dashboard (CutFlow, Hone, Deft and any others it was missing).
+- THIRD-PARTY-NOTICES.txt ships again with every installer; update.sh is kept in the repository.
 
 ## Cup 1.0.0 — 15-Oct-2026
 - First release: a desktop app store and manager for the Pour package manager, under 1 MB.

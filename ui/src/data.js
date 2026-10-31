@@ -1,7 +1,7 @@
 // Cup — what is installed, what is outdated, what exists. Copyright (c) 2026 Jagadeesh Kumar S. All rights reserved.
 import { createStore, settings, setSetting } from './store.js';
 import * as pour from './pour.js';
-import { env as bridgeEnv, badge, cap, post, log } from './bridge.js';
+import { env as bridgeEnv, badge, cap, post, log, sizes as bridgeSizes } from './bridge.js';
 import { runJob, toast } from './jobs.js';
 import { sfx } from './sfx.js';
 
@@ -12,7 +12,7 @@ export const app = createStore({
   cat: null, catError: '', loadingCat: true,
   taps: [], leaves: [],
   page: 'discover', sel: null, // sel = {name, kind}
-  busy: new Set(), // keys being worked on
+  busy: new Set(), sizes: {}, // keys being worked on
 });
 
 export const isInstalled = (p) => {
@@ -38,6 +38,30 @@ export async function refreshInstalled() {
   try { app.set({ installed: await pour.installed() }); } catch (e) { toast('err', `Could not read what is installed: ${e.message}`); }
   app.set({ loadingInstalled: false });
   refreshLeaves();
+  refreshSizes();
+}
+/** On-disk size of every installed app and tool: its Cellar/Caskroom folder plus what it put elsewhere (the .app). */
+export async function refreshSizes() {
+  const st = app.get(), pre = st.pourEnv?.prefix, sep = st.env?.sep || '/';
+  if (!pre) return;
+  const abs = (x) => typeof x === 'string' && (x.startsWith('/') || /^[A-Za-z]:\\/.test(x));
+  const items = [];
+  for (const f of st.installed.formulae) items.push(`formula:${f.name}|${pre}${sep}Cellar${sep}${f.name}`);
+  for (const c of st.installed.casks) {
+    const extra = (c.artifacts || []).flatMap((a) => (typeof a === 'string' ? [a.replace(/^[a-z]+:/, '')] : [])).filter(abs).filter((p) => !p.startsWith(`${pre}${sep}bin`));
+    items.push([`cask:${c.name}`, `${pre}${sep}Caskroom${sep}${c.name}`, ...extra].join('|'));
+  }
+  for (const h of [...st.installed.homebrew.formulae, ...st.installed.homebrew.casks]) if (abs(h.path)) items.push(`brew-${h.kind}:${h.name}|${h.path}`);
+  if (!items.length) return;
+  const got = await bridgeSizes(items);
+  if (got && typeof got === 'object') app.set({ sizes: got });
+}
+export const sizeOf = (p, brew = false) => app.get().sizes?.[`${brew ? 'brew-' : ''}${p.kind}:${p.name}`];
+export function human(n) {
+  if (n == null) return '';
+  const u = ['B', 'KB', 'MB', 'GB', 'TB']; let i = 0; let v = n;
+  while (v >= 1000 && i < u.length - 1) { v /= 1000; i++; }
+  return `${v < 10 && i ? v.toFixed(1) : Math.round(v)} ${u[i]}`;
 }
 export async function refreshLeaves() { try { app.set({ leaves: await pour.leaves() }); } catch { /* fine */ } }
 export async function refreshTaps() { try { app.set({ taps: await pour.taps() }); } catch { /* fine */ } }

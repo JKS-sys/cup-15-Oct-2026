@@ -2,9 +2,9 @@
 // Copyright (c) 2026 Jagadeesh Kumar S. All rights reserved.
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { Icon } from './icons.jsx';
-import { app, install, uninstall, reinstall, upgrade, isInstalled, installedVersion, outdatedOf, simple, refreshInstalled } from './data.js';
+import { human, app, install, uninstall, reinstall, upgrade, isInstalled, installedVersion, outdatedOf, simple, refreshInstalled } from './data.js';
 import { catName, catHue, hostOf, installLine, info as pourInfo, deps as pourDeps, uses as pourUses } from './pour.js';
-import { open } from './bridge.js';
+import { open, copyText } from './bridge.js';
 import { sfx } from './sfx.js';
 import { settings, useSettings } from './store.js';
 import { toast, onToast, cancelJob, jobs } from './jobs.js';
@@ -76,15 +76,20 @@ export function PkgCard({ p, onCtx }) {
   );
 }
 
-export function PkgRow({ p, checked, onCheck, onCtx, extra }) {
+export function PkgRow({ p, checked, onCheck, onCtx, extra, drag }) {
+  const st = app.use();
+  const size = isInstalled(p) ? st.sizes?.[`${p.kind}:${p.name}`] : null;
   return (
-    <div class={`row pk ${checked ? 'on' : ''}`} tabIndex={0} onClick={() => openSheet(p)} onKeyDown={(e) => e.key === 'Enter' && openSheet(p)} onContextMenu={(e) => onCtx?.(e, p)}>
-      {onCheck && <input type="checkbox" class="chk" checked={checked} onClick={(e) => { e.stopPropagation(); onCheck(e); }} aria-label={`Select ${p.name}`} />}
+    <div class={`row pk ${checked ? 'on' : ''}`} tabIndex={0} data-key={p.kind + p.name} onClick={() => openSheet(p)} onKeyDown={(e) => e.key === 'Enter' && openSheet(p)} onContextMenu={(e) => onCtx?.(e, p)}
+      onPointerEnter={drag ? () => drag.over(p) : undefined}>
+      {onCheck && <span class="chk-hit" title="Drag over rows to select or deselect many" onPointerDown={drag ? (e) => { e.preventDefault(); e.stopPropagation(); drag.start(p, e); } : undefined} onClick={(e) => { e.stopPropagation(); if (!drag) onCheck(e); }}>
+        <input type="checkbox" class="chk" checked={checked} tabIndex={-1} onClick={(e) => { e.preventDefault(); }} aria-label={`Select ${p.name}`} /></span>}
       <PkgIcon p={p} size={30} />
       <div class="row-main"><b>{p.title || p.name}</b><span class="muted clamp">{p.desc}</span></div>
       {extra}
       <KindBadge p={p} />
       <StateBadge p={p} />
+      {size != null && <span class="size ct-n" title="Space it takes on this computer">{human(size)}</span>}
       <span class="ver ct-n">{installedVersion(p) || p.version}</span>
       <PkgAction p={p} small />
     </div>
@@ -149,6 +154,7 @@ export function Sheet() {
         <div class="cmdline" title="Copy"><code>{installLine(p)}</code><CopyBtn text={installLine(p)} /></div>
         {err && <p class="note err">{err}</p>}
         <dl class="facts">
+          {inst && st.sizes?.[`${p.kind}:${p.name}`] != null && <><dt>Space used</dt><dd class="ct-n sh-size">{human(st.sizes[`${p.kind}:${p.name}`])}</dd></>}
           <dt>Version</dt><dd class="ct-n">{p.version || '—'}{inst && installedVersion(p) !== p.version ? <span class="muted"> (you have {installedVersion(p)})</span> : null}</dd>
           {p.homepage && <><dt>Website</dt><dd><a href="#" onClick={(e) => { e.preventDefault(); open(p.homepage); }}>{hostOf(p.homepage)}</a></dd></>}
           {d?.license && <><dt>Licence</dt><dd>{String(d.license)}</dd></>}
@@ -178,9 +184,8 @@ export function CopyBtn({ text }) {
   return (
     <button class="icon-btn" aria-label="Copy" onClick={(e) => {
       e.stopPropagation();
-      const t = document.createElement('textarea'); t.value = text; document.body.append(t); t.select();
-      try { (navigator.clipboard?.writeText(text) || Promise.reject()).catch(() => document.execCommand('copy')); } catch { document.execCommand('copy'); }
-      t.remove(); setOk(true); sfx('copy', e.currentTarget); setTimeout(() => setOk(false), 1200);
+      const at = e.currentTarget;
+      copyText(text).then((done) => { if (done) { setOk(true); sfx('copy', at); toast('ok', 'Copied'); setTimeout(() => setOk(false), 1200); } else { sfx('error', at); toast('err', 'Could not copy'); } });
     }}><Icon n={ok ? 'check' : 'copy'} size={16} /></button>
   );
 }
@@ -288,7 +293,7 @@ export function pkgMenu(e, p, extra = []) {
     inst && { label: 'Pour again', icon: 'refresh', run: () => reinstall([p]) },
     inst && { label: 'Remove…', icon: 'trash', danger: true, run: () => confirmRemove([p]) },
     '-',
-    { label: 'Copy install command', icon: 'copy', run: () => { navigator.clipboard?.writeText(installLine(p)); sfx('copy'); toast('ok', 'Copied'); } },
+    { label: 'Copy install command', icon: 'copy', run: () => copyText(installLine(p)).then((d) => { sfx(d ? 'copy' : 'error'); toast(d ? 'ok' : 'err', d ? 'Copied' : 'Could not copy'); }) },
     p.homepage && { label: 'Open website', icon: 'globe', run: () => open(p.homepage) },
     ...extra,
   ]);

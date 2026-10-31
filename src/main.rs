@@ -331,6 +331,62 @@ fn open_url(target: &str) -> bool {
     c.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).spawn().is_ok()
 }
 
+/// Real on-disk size of a file or folder; symlinks are not followed.
+fn dir_size(p: &Path) -> u64 {
+    let Ok(m) = std::fs::symlink_metadata(p) else { return 0 };
+    if m.is_dir() {
+        std::fs::read_dir(p)
+            .map(|r| r.filter_map(Result::ok).map(|e| dir_size(&e.path())).sum())
+            .unwrap_or(0)
+    } else if m.file_type().is_symlink() {
+        0
+    } else {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::MetadataExt;
+            m.blocks() * 512
+        }
+        #[cfg(not(unix))]
+        {
+            m.len()
+        }
+    }
+}
+
+/// The system clipboard (the WebView's own clipboard API is refused in an app window).
+fn copy_text(t: &str) -> bool {
+    use std::io::Write;
+    let tries: &[(&str, &[&str])] = if cfg!(target_os = "macos") {
+        &[("/usr/bin/pbcopy", &[])]
+    } else if cfg!(windows) {
+        &[("clip.exe", &[])]
+    } else {
+        &[
+            ("wl-copy", &[]),
+            ("xclip", &["-selection", "clipboard"]),
+            ("xsel", &["--clipboard", "--input"]),
+        ]
+    };
+    for (prog, args) in tries {
+        let mut c = Command::new(prog);
+        c.args(*args).stdin(Stdio::piped()).stdout(Stdio::null()).stderr(Stdio::null());
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            c.creation_flags(0x0800_0000);
+        }
+        if let Ok(mut ch) = c.spawn() {
+            if let Some(mut i) = ch.stdin.take() {
+                let _ = i.write_all(t.as_bytes());
+            }
+            if ch.wait().is_ok_and(|s| s.success()) {
+                return true;
+            }
+        }
+    }
+    false
+}
+
 fn safe_key(k: &str) -> bool {
     !k.is_empty() && k.len() < 64 && k.bytes().all(|c| c.is_ascii_alphanumeric() || c == b'-' || c == b'_')
 }
@@ -563,6 +619,29 @@ fn handle(id: &str, req: &str) {
             }
             reply(id, true, "true");
         }
+        "copy" => {
+            let ok = copy_text(&arg(1));
+            reply(id, true, if ok { "true" } else { "false" })
+        }
+        "du" => {
+            // Sizes of installed packages, read only: each argument is "key|path|path…".
+            let (id, items) = (id.to_string(), a.iter().skip(1).cloned().collect::<Vec<_>>());
+            std::thread::spawn(move || {
+                let parts: Vec<String> = items
+                    .iter()
+                    .filter_map(|it| {
+                        let mut f = it.split('|');
+                        let key = f.next()?.to_string();
+                        let total: u64 = f
+                            .filter(|p| Path::new(p).is_absolute() && !p.contains(".."))
+                            .map(|p| dir_size(Path::new(p)))
+                            .sum();
+                        Some(format!("{}:{}", q(&key), total))
+                    })
+                    .collect();
+                reply(&id, true, &format!("{{{}}}", parts.join(",")));
+            });
+        }
         "open" => reply(id, true, if open_url(&arg(1)) { "true" } else { "false" }),
         "badge" => {
             if let Ok(c) = CString::new(arg(1)) {
@@ -665,5 +744,20 @@ fn main() {
             }
         }
         webview_destroy(w);
+    }
+}
+
+#[cfg(test)]
+mod t {
+    #[test]
+    fn sizes_count_files_but_not_symlinks() {
+        let d = std::env::temp_dir().join(format!("cup du test {}", std::process::id()));
+        std::fs::create_dir_all(d.join("a b")).unwrap();
+        std::fs::write(d.join("a b/f"), vec![1u8; 10_000]).unwrap();
+        #[cfg(unix)]
+        std::os::unix::fs::symlink("/usr", d.join("link")).unwrap();
+        let n = super::dir_size(&d);
+        assert!(n >= 10_000 && n < 1_000_000, "{n}");
+        let _ = std::fs::remove_dir_all(&d);
     }
 }

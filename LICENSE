@@ -20,7 +20,11 @@ pictures and documentation) belongs to Jagadeesh Kumar S.
 4. Builds. Only Jagadeesh Kumar S may publish builds of Cup. Builds made by
    anyone else are not Cup and must not use its name, icon or byline.
 
-5. No warranty. Cup is provided "as is", without warranty of any kind. Its
+5. Software by others. A few parts were written by others and keep
+   their own licences; those texts are in THIRD-PARTY-NOTICES.txt.
+   Paragraphs 2 to 4 do not apply to those parts.
+
+6. No warranty. Cup is provided "as is", without warranty of any kind. Its
    owner is not liable for any damage or loss that comes from using it,
    including anything a package manager installs, upgrades or removes.
 

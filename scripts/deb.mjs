@@ -20,6 +20,7 @@ put(join(root, 'packaging/cup.desktop'), 'usr/share/applications/cup.desktop', 0
 put(join(root, 'assets/cup-256.png'), 'usr/share/icons/hicolor/256x256/apps/cup.png', 0o644);
 put(join(root, 'assets/icon-dark.svg'), 'usr/share/icons/hicolor/scalable/apps/cup.svg', 0o644);
 put(join(root, 'LICENSE'), 'usr/share/doc/cup/copyright', 0o644);
+put(join(root, 'THIRD-PARTY-NOTICES.txt'), 'usr/share/doc/cup/THIRD-PARTY-NOTICES.txt', 0o644);
 const kb = Math.ceil(Number(execFileSync('du', ['-sk', data]).toString().split(/\s/)[0]));
 const ctl = join(t, 'control');
 mkdirSync(ctl);
