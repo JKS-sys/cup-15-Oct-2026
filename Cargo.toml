@@ -1,6 +1,6 @@
 [package]
 name = "cup"
-version = "1.0.0"
+version = "1.0.1"
 edition = "2021"
 description = "Cup — a desktop app store and manager for the Pour package manager"
 authors = ["Jagadeesh Kumar S <JKS.sys@icloud.com>"]
