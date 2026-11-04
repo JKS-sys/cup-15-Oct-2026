@@ -91,10 +91,12 @@ export async function catalogue(force = false) {
   try { apps = a.ok ? (JSON.parse(a.text).apps || []) : []; } catch { /* offline */ }
   // The dashboard decides: only the creator's apps registered and switched on there are shown.
   try {
-    const d = await get(`${HOST}/api/v1/apps`, 'dash-apps', force ? 0 : 900);
-    const list = d.ok ? (JSON.parse(d.text).apps || []) : null;
+    // ?cup=1: the apps whose "Cup" switch is on in the ipconfig owner panel (App options).
+    const d = await get(`${HOST}/api/v1/apps?cup=1`, 'dash-apps-cup', force ? 0 : 900);
+    const j = d.ok ? JSON.parse(d.text) : null;
+    const list = j ? (j.apps || []) : null;
     if (list) {
-      const on = new Set(list.filter((x) => !/pending|off|hidden|disabled|inactive/i.test(String(x.status ?? '')) && x.active !== false && x.enabled !== false).map((x) => x.id || x.app || x.slug));
+      const on = new Set(list.filter((x) => x.status !== 'off' && (!x.visible || x.visible.cup !== false)).map((x) => x.id || x.app || x.slug));
       apps = apps.filter((x) => on.has(x.token));
     }
   } catch { /* dashboard unreachable: keep Pour's list */ }
