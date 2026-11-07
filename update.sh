@@ -162,7 +162,11 @@ if [ -x "${CUP_POUR:-/opt/pour/bin/pour}" ] && [ "${SKIP_UI_TEST:-0}" != 1 ]; th
     done
   fi
   if [ -n "${CHROMIUM:-}" ]; then echo "  browser: $CHROMIUM"
-  else echo "  fetching the test browser (once, about 150 MB)…"; (cd ui && npx --yes playwright install chromium) || warn "the test browser could not be fetched"; fi
+  else echo "  fetching the test browser (once, about 150 MB)…"
+    # A lock left by an earlier, interrupted download blocks every later one; drop it when nothing is downloading.
+    LOCK="$HOME/Library/Caches/ms-playwright/__dirlock"
+    [ -e "$LOCK" ] && ! pgrep -f "playwright.*install" >/dev/null 2>&1 && rm -rf "$LOCK" && echo "  removed a stale download lock"
+    (cd ui && npx --yes playwright install chromium) || warn "the test browser could not be fetched"; fi
   if (cd ui && CUP_POUR="${CUP_POUR:-/opt/pour/bin/pour}" node build.mjs --plain >/dev/null && CUP_POUR="${CUP_POUR:-/opt/pour/bin/pour}" node test/ui.mjs 2>&1 | tee "$BUILD_CACHE/ui-test.log"; exit "${PIPESTATUS[0]}"); then
     ok "interface test passed (zero page errors, every size fits)"
   else
@@ -228,11 +232,14 @@ if [ "$(uname)" = Darwin ]; then
     sed "s/@VERSION@/$VERSION/g" packaging/Info.plist >"$app/Contents/Info.plist"
     cp assets/cup.icns "$app/Contents/Resources/cup.icns"
     cp LICENSE THIRD-PARTY-NOTICES.txt "$app/Contents/Resources/"
-    if [ -n "${MAC_SIGN_IDENTITY:-}" ] && security find-identity -v -p codesigning 2>/dev/null | grep -q "\"$MAC_SIGN_IDENTITY\""; then
-      codesign --force --deep --options runtime -s "$MAC_SIGN_IDENTITY" "$app" && ok "signed with \"$MAC_SIGN_IDENTITY\""
+    # Sign by the certificate's SHA-1, so two certificates with the same name are never "ambiguous".
+    SIGN_HASH=$(security find-identity -v -p codesigning 2>/dev/null | awk -v n="\"${MAC_SIGN_IDENTITY:-none}\"" 'index($0,n){print $2; exit}')
+    if [ -n "$SIGN_HASH" ]; then
+      codesign --force --deep --options runtime -s "$SIGN_HASH" "$app" && ok "signed with \"$MAC_SIGN_IDENTITY\""
     else codesign --force --deep -s - "$app" && warn "signed ad hoc (no saved identity)"; fi
     if [ -n "${APPLE_SIGN_IDENTITY:-}" ] && [ -n "${APPLE_NOTARY_PROFILE:-}" ]; then
-      codesign --force --deep --options runtime --timestamp -s "$APPLE_SIGN_IDENTITY" "$app"
+      DEVID_HASH=$(security find-identity -v -p codesigning 2>/dev/null | awk -v n="\"$APPLE_SIGN_IDENTITY\"" 'index($0,n){print $2; exit}')
+      codesign --force --deep --options runtime --timestamp -s "${DEVID_HASH:-$APPLE_SIGN_IDENTITY}" "$app"
       ditto -c -k --keepParent "$app" "$BUILD_CACHE/n.zip" && xcrun notarytool submit "$BUILD_CACHE/n.zip" --keychain-profile "$APPLE_NOTARY_PROFILE" --wait && xcrun stapler staple "$app" && ok "notarised"
     fi
     APPSZ=$(du -sk "$app" | cut -f1); ok "Cup.app ($arch): ${APPSZ} KB on disk"

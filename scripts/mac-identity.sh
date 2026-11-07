@@ -20,10 +20,12 @@ cd "$(dirname "$0")/.."
 NAME="${MAC_SIGN_IDENTITY:-JKS-sys App Self-Signed}"
 KC="$HOME/Library/Keychains/login.keychain-db"
 
+# Any certificate of this name counts (valid or not yet trusted), so a second one is never made.
 have() { security find-identity -v -p codesigning 2>/dev/null | grep -q "\"$NAME\""; }
+exists() { security find-certificate -c "$NAME" "$KC" >/dev/null 2>&1; }
 keep() { keep_env "$1" "$2"; }
 
-if have; then
+if have || exists; then
   echo "  signing identity: \"$NAME\" (already in your keychain)"
   keep MAC_SIGN_IDENTITY "$NAME"
   exit 0

@@ -82,6 +82,9 @@ RUN --mount=type=secret,id=ca,required=false \
       | grep -E "^[a-z0-9][^ <>]*(:$OTHER)?$" | sort -u > list && \
     (xargs -a list apt-get $CA download >/dev/null 2>&1 || xargs -a list -n 1 apt-get $CA download 2>/dev/null || true) && \
     for d in *.deb; do dpkg -x "$d" /sysroot/$OTHER; done && \
+    for f in $(find /sysroot/$OTHER -name 'ld-linux*.so.*' \( -type f -o -type l \)); do \
+      n=$(basename "$f"); for dir in lib lib64; do mkdir -p /sysroot/$OTHER/$dir; [ -e /sysroot/$OTHER/$dir/$n ] || cp -L "$f" /sysroot/$OTHER/$dir/$n; done; done && \
+    ls /sysroot/$OTHER/lib*/ld-linux* >/dev/null && \
     rm -rf /tmp/debs /var/lib/apt/lists/*
 RUN --mount=type=secret,id=ca,required=false \
     if [ -s /run/secrets/ca ]; then export CURL_CA_BUNDLE=/run/secrets/ca SSL_CERT_FILE=/run/secrets/ca; fi && \
