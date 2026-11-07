@@ -332,6 +332,39 @@ fn open_url(target: &str) -> bool {
 }
 
 /// Real on-disk size of a file or folder; symlinks are not followed.
+/// Panics (and native failures the bridge catches) are kept in a small local file, so a
+/// crash that takes the window down is still reported on the next start. Newest last, capped.
+fn crash_file() -> PathBuf {
+    data_dir().join("crashes.log")
+}
+
+fn note_crash(kind: &str, message: &str, place: &str) {
+    let line = format!(
+        "{{\"kind\":{},\"message\":{},\"place\":{},\"at\":{}}}\n",
+        q(kind),
+        q(&message.chars().take(500).collect::<String>()),
+        q(&place.chars().take(200).collect::<String>()),
+        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
+    );
+    let f = crash_file();
+    let _ = std::fs::create_dir_all(f.parent().unwrap_or(Path::new(".")));
+    let old = std::fs::read_to_string(&f).unwrap_or_default();
+    let mut lines: Vec<&str> = old.lines().filter(|l| !l.is_empty()).collect();
+    let keep = lines.len().saturating_sub(49);
+    lines.drain(..keep);
+    let _ = std::fs::write(&f, format!("{}{}", lines.iter().map(|l| format!("{l}\n")).collect::<String>(), line));
+}
+
+/// The saved reports as a JSON array; `clear` empties the file once they are sent.
+fn take_crashes(clear: bool) -> String {
+    let f = crash_file();
+    let body = std::fs::read_to_string(&f).unwrap_or_default();
+    if clear {
+        let _ = std::fs::remove_file(&f);
+    }
+    format!("[{}]", body.lines().filter(|l| l.starts_with('{')).collect::<Vec<_>>().join(","))
+}
+
 fn dir_size(p: &Path) -> u64 {
     let Ok(m) = std::fs::symlink_metadata(p) else { return 0 };
     if m.is_dir() {
@@ -619,6 +652,10 @@ fn handle(id: &str, req: &str) {
             }
             reply(id, true, "true");
         }
+        "crashlog" => {
+            // Read (and, with "clear", empty) the local crash reports.
+            reply(id, true, &take_crashes(arg(1) == "clear"))
+        }
         "copy" => {
             let ok = copy_text(&arg(1));
             reply(id, true, if ok { "true" } else { "false" })
@@ -695,6 +732,7 @@ extern "C" fn on_call(id: *const c_char, req: *const c_char, _arg: *mut c_void) 
     // A failure inside one request must never take the window down.
     let r = std::panic::catch_unwind(|| handle(&id, &req));
     if r.is_err() {
+        note_crash("bridge", "a request failed inside Cup", &req.chars().take(80).collect::<String>());
         reply(&id, false, &q("Cup hit an internal error"));
     }
 }
@@ -709,6 +747,17 @@ fn main() {
         println!("Cup {VERSION} — by Jagadeesh Kumar S");
         return;
     }
+    std::panic::set_hook(Box::new(|info| {
+        let msg = info
+            .payload()
+            .downcast_ref::<&str>()
+            .map(|s| s.to_string())
+            .or_else(|| info.payload().downcast_ref::<String>().cloned())
+            .unwrap_or_else(|| "panic".into());
+        let place = info.location().map(|l| format!("{}:{}", l.file(), l.line())).unwrap_or_default();
+        note_crash("panic", &msg, &place);
+        eprintln!("Cup: {msg} ({place})");
+    }));
     let page = match sealed::page() {
         Some(p) => p,
         None => {
@@ -759,5 +808,22 @@ mod t {
         let n = super::dir_size(&d);
         assert!(n >= 10_000 && n < 1_000_000, "{n}");
         let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn crash_log_keeps_reports_until_cleared() {
+        let home = std::env::temp_dir().join(format!("cup crash home {}", std::process::id()));
+        std::env::set_var("HOME", &home);
+        std::env::set_var("XDG_CONFIG_HOME", home.join("cfg dir"));
+        let _ = std::fs::remove_file(super::crash_file());
+        for i in 0..60 {
+            super::note_crash("panic", &format!("boom \"{i}\""), "src/main.rs:1");
+        }
+        let all = super::take_crashes(false);
+        assert_eq!(all.matches("\"kind\"").count(), 50, "capped at 50");
+        assert!(all.contains("boom \\\"59\\\"") && all.starts_with("[{") && all.ends_with("}]"), "{all}");
+        assert_eq!(super::take_crashes(true).matches("kind").count(), 50);
+        assert_eq!(super::take_crashes(false), "[]");
+        let _ = std::fs::remove_dir_all(&home);
     }
 }

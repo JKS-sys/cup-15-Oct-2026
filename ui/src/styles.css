@@ -291,3 +291,13 @@ body[data-motion=lively] .pk.card:hover{transform:translateY(-4px) rotate(-.3deg
 .size{font-size:12px;white-space:nowrap;min-width:56px;text-align:right}
 body.dragsel,body.dragsel *{user-select:none!important;cursor:cell!important}
 .sh-size{font-weight:700}
+.c-lime{color:var(--c-lime)}.c-amber{color:var(--c-amber)}.c-violet{color:var(--c-violet)}.b{font-weight:650}.u{text-decoration:underline dotted}
+.cmdline code .c-blue,.ll .c-blue{color:var(--c-blue)}
+.logbox{position:relative;overflow:hidden}
+.lb-sweep{position:absolute;left:0;top:0;height:2px;width:30%;background:linear-gradient(90deg,transparent,var(--c-teal),var(--c-cyan),transparent);animation:lbsweep 1.4s linear infinite;pointer-events:none}
+@keyframes lbsweep{from{transform:translateX(-100%)}to{transform:translateX(340%)}}
+.ll.k-ok i{color:var(--c-green)}.ll.k-err i,.ll.k-errline i{color:var(--c-red)}.ll.k-warn i{color:var(--c-amber)}.ll.k-step i{color:var(--c-violet)}.ll.k-cmd i{color:var(--c-blue)}.ll.k-hint i{color:var(--c-cyan)}
+.ll{animation:llin .25s ease-out both}@keyframes llin{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:none}}
+.crash-list{display:grid;gap:6px;max-height:260px;overflow:auto}.crash-list .row{font-family:var(--mono,ui-monospace,monospace);font-size:12px}
+@media (prefers-reduced-motion:reduce){.lb-sweep,.ll{animation:none}}
+body[data-motion=off] .lb-sweep,body[data-motion=off] .ll{animation:none}

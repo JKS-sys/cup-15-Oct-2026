@@ -1,7 +1,7 @@
 // Cup — what is installed, what is outdated, what exists. Copyright (c) 2026 Jagadeesh Kumar S. All rights reserved.
 import { createStore, settings, setSetting } from './store.js';
 import * as pour from './pour.js';
-import { env as bridgeEnv, badge, cap, post, log, sizes as bridgeSizes } from './bridge.js';
+import { call, env as bridgeEnv, badge, cap, post, log, sizes as bridgeSizes } from './bridge.js';
 import { runJob, toast } from './jobs.js';
 import { sfx } from './sfx.js';
 
@@ -163,4 +163,16 @@ export function reportCrash(kind, message, place = '', stack = '') {
   if (/ResizeObserver loop|^Script error\.?$/.test(message)) return;
   const e = app.get().env || {};
   post('crashes', { app: 'cup', kind, version: e.version, os: e.os, message: String(message).slice(0, 500), place: String(place).slice(0, 200), stack: String(stack).slice(0, 4000), mid: settings().mid });
+}
+
+/** Crashes saved by the native side (panics, failed requests) go out once, as one batch. */
+export async function sendSavedCrashes() {
+  let list = [];
+  try { list = await call('crashlog'); } catch { return; }
+  if (!Array.isArray(list) || !list.length) return;
+  window.__cupSent = list;
+  if (!settings().ping) return;
+  const e = app.get().env || {};
+  const r = await post('crashes', { app: 'cup', version: e.version, os: e.os, crashes: list.slice(-50).map((c) => ({ kind: c.kind, message: c.message, place: c.place, version: e.version, os: e.os, mid: settings().mid })) });
+  if (r !== '') await call('crashlog', 'clear').catch(() => {});
 }

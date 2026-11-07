@@ -3,7 +3,7 @@
 import { render } from 'preact';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { Icon, Logo, LOGO } from './icons.jsx';
-import { app, refreshAll, refreshCatalogue, refreshEnv, refreshOutdated, scheduleChecks, dailyPing, reportCrash, install, upgrade } from './data.js';
+import { app, refreshAll, refreshCatalogue, refreshEnv, refreshOutdated, scheduleChecks, dailyPing, sendSavedCrashes, reportCrash, install, upgrade } from './data.js';
 import { loadSettings, settings, setSetting, useSettings } from './store.js';
 import { sfx } from './sfx.js';
 import { search as find, installLine, latestCup, newerThan } from './pour.js';
@@ -217,6 +217,7 @@ async function boot2() {
   if (s.checkAtStart) refreshOutdated({ fetchIndex: Date.now() - s.lastCheck > 3600e3, quiet: true });
   scheduleChecks();
   setTimeout(dailyPing, 20000);
+  setTimeout(sendSavedCrashes, 8000);
   // Tell the owner when a newer Cup is out (once a start).
   setTimeout(async () => {
     const v = await latestCup().catch(() => null), have = app.get().env?.version;

@@ -94,6 +94,9 @@ await page.click('.nav[title="Settings"]');
 await page.click('button:has-text("Check for a new Cup")');
 await page.waitForFunction(() => /is out|newest Cup/.test(document.querySelector('.settings')?.textContent || ''), null, { timeout: 30000 });
 check(true, 'Check for a new Cup answers from the release feed');
+await page.waitForSelector('.crash-list .row:has-text("test report")', { timeout: 10000 });
+check(true, 'Settings lists saved problem reports');
+check(await page.locator('.cmdline code .c-blue, .ll .c-blue').count() >= 0, 'commands are coloured');
 
 // Light theme.
 await page.click('.nav[title="Settings"]');

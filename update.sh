@@ -54,8 +54,11 @@ cleanup() {
 trap cleanup EXIT
 
 . scripts/env.sh
-[ -f .env ] || { [ -f "${SHIP_ENV:-}" ] && cp "$SHIP_ENV" .env && chmod 600 .env; } || true
-load_env .env
+# Secrets: the ipconfig dashboard vault first (key from the keychain or the gh sign-in); a local .env is optional and only overrides.
+[ -f .env ] && load_env .env
+vault_key; [ -n "${VAULT_KC_SAID:-}" ] && ok "vault key (APPS_API_KEY): $VAULT_KC_SAID"
+[ -n "${APPS_API_KEY:-}" ] || { command -v gh >/dev/null 2>&1 && gh auth token >/dev/null 2>&1; } || die "no vault key: set APPS_API_KEY in the keychain (service 'ipconfig vault') or sign in with gh auth login"
+load_vault cup; ok "vault: $VAULT_SAID"
 [ -n "${GH_TOKEN:-}" ] && export GH_TOKEN
 
 # ---- Pour first: every tool comes from it.
@@ -186,7 +189,7 @@ fi
 if [ "$(uname)" = Darwin ]; then
   step "macOS"
   bash scripts/mac-identity.sh || true
-  load_env .env
+  [ -f .env ] && load_env .env || true
   # Apple's own compiler and linker only: Pour's clang, ld or libraries on PATH must not mix in.
   SDK=$(xcrun --sdk macosx --show-sdk-path 2>/dev/null || true)
   [ -n "$SDK" ] || die "Apple's command line tools are missing — run: xcode-select --install, then run update.sh again"
@@ -299,7 +302,7 @@ if [ $UI_OK = 0 ]; then step "Done — installers are in $OUT/, NOT published be
 
 # ---- Publish: source and release on the public repository, mirror on R2, then Pour.
 step "GitHub ($REPO, public)"
-gh auth status >/dev/null 2>&1 || die "gh is not signed in (gh auth login, or GH_TOKEN in .env)"
+gh auth status >/dev/null 2>&1 || die "gh is not signed in (gh auth login, or GH_TOKEN in the vault)"
 gh repo view "$REPO" >/dev/null 2>&1 || gh repo create "$REPO" --public --description "$LINE" --homepage "$HOMEPAGE" >/dev/null && ok "repository ready"
 bash scripts/stamp-changelog.sh "$VERSION"
 bash scripts/push-github.sh "$REPO" "Cup $VERSION"
@@ -317,7 +320,7 @@ if [ -n "${CLOUDFLARE_API_TOKEN:-}" ] && [ -n "${CLOUDFLARE_ACCOUNT_ID:-}" ]; th
   W r2 bucket info "$BUCKET" >/dev/null 2>&1 || W r2 bucket create "$BUCKET" || warn "could not create the bucket"
   for f in "$OUT"/*; do b=$(basename "$f"); [ "$b" = latest.json ] && continue; W r2 object put "$BUCKET/releases/v$VERSION/$b" --file "$f" --remote || warn "R2: $b not uploaded"; done
   W r2 object put "$BUCKET/latest.json" --file "$OUT/latest.json" --content-type application/json --remote && ok "R2 mirror updated (latest.json last)" || warn "R2 latest.json not uploaded (Cloudflare's side) — GitHub is the source of truth"
-else warn "Cloudflare keys missing in .env: R2 mirror skipped"; fi
+else warn "Cloudflare keys missing in the vault: R2 mirror skipped"; fi
 
 step "Pour and the dashboard"
 node scripts/dashboard-sync.mjs || warn "some apps could not be switched on in the dashboard (see above)"

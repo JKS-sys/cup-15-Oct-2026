@@ -151,7 +151,7 @@ export function Sheet() {
           </>}
           {p.homepage && <button class="btn ghost" onClick={() => open(p.homepage)}><Icon n="globe" />Website</button>}
         </div>
-        <div class="cmdline" title="Copy"><code>{installLine(p)}</code><CopyBtn text={installLine(p)} /></div>
+        <div class="cmdline" title="Copy"><code><Code shell text={installLine(p)} /></code><CopyBtn text={installLine(p)} /></div>
         {err && <p class="note err">{err}</p>}
         <dl class="facts">
           {inst && st.sizes?.[`${p.kind}:${p.name}`] != null && <><dt>Space used</dt><dd class="ct-n sh-size">{human(st.sizes[`${p.kind}:${p.name}`])}</dd></>}
@@ -299,6 +299,34 @@ export function pkgMenu(e, p, extra = []) {
   ]);
 }
 
+// ---- Colour for commands, paths, versions and brackets (by depth), so lines read at a glance.
+const BR = ['c-violet', 'c-green', 'c-cyan', 'c-amber'];
+const TOK = /(https?:\/\/[^\s)\]}'"]+)|("[^"]*"|'[^']*')|(--?[A-Za-z][\w-]*)|([\[\](){}<>])|(\||&&|;|=>|→|=)|(\d+(?:\.\d+)+[\w.-]*|\b\d+(?:\.\d+)?\s?(?:[KMG]i?B|%|s|ms)?\b)|((?:~|\.{1,2})?\/[\w@.+\/-]+)|(\S+)/g;
+export function Code({ text = '', shell = false }) {
+  const out = [];
+  let depth = 0, word = 0, m;
+  TOK.lastIndex = 0;
+  let last = 0;
+  while ((m = TOK.exec(text))) {
+    if (m.index > last) out.push(text.slice(last, m.index));
+    last = TOK.lastIndex;
+    const [t, url, str, flag, br, op, num, path] = m;
+    let c = '';
+    if (url) c = 'c-cyan u';
+    else if (str) c = 'c-green';
+    else if (flag) c = 'c-amber';
+    else if (br) { const open = '([{<'.includes(t); if (!open) depth = Math.max(0, depth - 1); c = BR[depth % BR.length]; if (open) depth++; }
+    else if (op) { c = 'c-orange'; if (t !== '=') word = 0; }
+    else if (num) c = 'ct-n';
+    else if (path) c = 'c-teal';
+    else if (shell) { c = word === 0 ? 'c-blue b' : word === 1 ? 'c-violet' : ''; word++; }
+    out.push(c ? <span class={c}>{t}</span> : t);
+    if (!shell && (url || path)) word++;
+  }
+  if (last < text.length) out.push(text.slice(last));
+  return <>{out}</>;
+}
+
 // ---- Log box: live status, counts and a badge per line kind.
 const BADGE = { step: '➤', cmd: '▶', ok: '✓', err: '✗', errline: '!', warn: '⚠', hint: '?', out: '' };
 export function LogBox({ job, open: startOpen = false }) {
@@ -321,7 +349,8 @@ export function LogBox({ job, open: startOpen = false }) {
         {job.status === 'running' && <button class="btn sm ghost" onClick={(e) => { e.stopPropagation(); cancelJob(job.id); }}><Icon n="stop" size={13} />Stop</button>}
         <CopyBtn text={job.lines.map((l) => l.t).join('\n')} />
       </header>
-      {openState && <div class="log" ref={ref}>{job.lines.map((l) => <div class={`ll k-${l.k}`}><i>{BADGE[l.k]}</i><span>{l.t}</span></div>)}</div>}
+      {job.status === 'running' && <i class="lb-sweep" aria-hidden="true" />}
+      {openState && <div class="log" ref={ref}>{job.lines.map((l) => <div class={`ll k-${l.k}`}><i>{BADGE[l.k]}</i><span><Code shell={l.k === 'cmd'} text={l.t} /></span></div>)}</div>}
     </section>
   );
 }

@@ -4,11 +4,11 @@ import { Icon, LOGO } from './icons.jsx';
 import { app, install, upgrade, uninstall, reinstall, refreshCatalogue, refreshInstalled, refreshOutdated, refreshTaps, refreshEnv, simple, isInstalled, human, sizeOf } from './data.js';
 import { copyText } from './bridge.js';
 import { CATEGORIES, catName, catHue, search, fame, parseDoctor, installLine, latestCup, newerThan } from './pour.js';
-import { PkgCard, PkgRow, PkgIcon, KindBadge, PkgAction, openSheet, LogBox, Empty, useMore, LayoutPick, pkgMenu, confirmRemove, ask, hueVar, CopyBtn, contextMenu } from './parts.jsx';
+import { PkgCard, PkgRow, PkgIcon, KindBadge, PkgAction, openSheet, LogBox, Empty, useMore, LayoutPick, pkgMenu, confirmRemove, ask, hueVar, CopyBtn, contextMenu, Code } from './parts.jsx';
 import { jobs, runJob, toast, clearJobs } from './jobs.js';
 import { settings, setSetting, useSettings, DEFAULTS } from './store.js';
 import { sfx, PACKS, SOUNDS } from './sfx.js';
-import { open, snapshots, readBrewfile, deleteSnapshot, cap, get, relaunch } from './bridge.js';
+import { call, open, snapshots, readBrewfile, deleteSnapshot, cap, get, relaunch } from './bridge.js';
 import LICENCE from 'virtual:licence';
 
 const H = ({ title, sub, children }) => (
@@ -279,7 +279,7 @@ export function Taps() {
         {st.taps.map((t) => (
           <div class="row" onContextMenu={(e) => contextMenu(e, [{ label: 'Copy address', icon: 'copy', run: () => copyText(t.url) }, { label: 'Open address', icon: 'globe', run: () => open(t.url) }])}>
             <Icon n="taps" /><div class="row-main"><b>{t.name}</b><span class="muted clamp">{t.url}</span></div>
-            <button class="btn sm danger" onClick={async (e) => { const at = e.currentTarget; if (await ask({ title: `Remove the ${t.name} tap?`, body: <p>Packages from it stay installed; Pour just stops reading it.</p>, ok: 'Remove', danger: true })) { await runJob(['tap', 'remove', t.name], { title: `Untap ${t.name}`, start: 'untap', done: 'untap', at }); refreshTaps(); } }}>Remove</button>
+            <button class="btn sm danger" onClick={async (e) => { const at = e.currentTarget; if (await ask({ title: `Remove the ${t.name} tap?`, body: tapWarning(t.name), ok: 'Remove', danger: true })) { await runJob(['tap', 'remove', t.name], { title: `Untap ${t.name}`, start: 'untap', done: 'untap', at }); refreshTaps(); } }}>Remove</button>
           </div>
         ))}
         {!st.taps.length && <Empty icon="taps" title="No extra taps" />}
@@ -417,6 +417,35 @@ export function Log() {
 }
 
 // ---- Settings.
+/** What removing a tap does; the creator's default taps get a fuller warning. */
+function tapWarning(name) {
+  const n = name.toLowerCase();
+  if (n.endsWith('pour-apps')) return <><p>This tap is where the creator's own desktop apps come from, Cup included.</p><ul><li>They disappear from search, Apps and Updates.</li><li>Ones you already have stay installed but stop getting updates through Pour, and <b>Update Cup with Pour</b> stops working.</li><li>It stays off until you add it again with <code>pour tap add jks-sys/pour-apps</code>.</li></ul></>;
+  if (n.endsWith('pour-tools')) return <><p>This tap holds Pour's own builds of command-line tools.</p><ul><li>On Windows, FreeBSD and older Macs, tools with no ready-made build can no longer be installed.</li><li>Tools registered with Pour disappear from search.</li><li>Homebrew's main list is not affected. It stays off until you add it again.</li></ul></>;
+  if (n.endsWith('pour-desktop')) return <><p>This tap holds installers of the creator's apps for Windows, Linux and FreeBSD; without it those apps can't be installed there.</p></>;
+  return <p>Packages from it stay installed; Pour just stops reading it.</p>;
+}
+
+/** Problems Cup ran into: kept locally, sent (when allowed) on the next start, readable here. */
+function Problems() {
+  const [list, setList] = useState(null);
+  const load = () => call('crashlog').then((r) => setList(Array.isArray(r) ? r : [])).catch(() => setList([]));
+  useEffect(() => { load(); }, []);
+  const seen = (window.__cupSent || []).concat(list || []);
+  return (
+    <section class="card"><h3>Problems</h3>
+      <p class="muted">Errors and crashes Cup noticed on this computer. With the daily hello on, they go to the creator so they can be fixed.</p>
+      {!seen.length ? <Empty icon="check" title="No problems recorded" /> : (
+        <div class="crash-list">{seen.slice(-30).reverse().map((c) => <div class="row"><span class={`badge ${c.kind === 'panic' ? 'b-err' : 'b-warn'}`}>{c.kind}</span><span class="clamp"><Code text={`${c.message}${c.place ? ` (${c.place})` : ''}`} /></span></div>)}</div>
+      )}
+      <div class="row-btns">
+        <button class="btn sm" onClick={() => { copyText(seen.map((c) => `${c.kind}: ${c.message} ${c.place || ''}`).join('\n')); sfx('copy'); toast('Problems copied', 'ok'); }} disabled={!seen.length}>Copy report</button>
+        <button class="btn sm ghost" onClick={async () => { await call('crashlog', 'clear').catch(() => {}); window.__cupSent = []; load(); sfx('clean'); }} disabled={!seen.length}>Clear</button>
+      </div>
+    </section>
+  );
+}
+
 export function Settings() {
   const s = useSettings();
   const st = app.use();
@@ -468,6 +497,7 @@ export function Settings() {
       <section class="card"><h3>Privacy</h3>
         <Opt label="Send an anonymous daily hello and crash notes" hint="Only the app name, version, system and a random id — never what you install. Helps the creator fix problems."><input type="checkbox" checked={s.ping} onChange={set('ping')} /></Opt>
       </section>
+      <Problems />
       <section class="card"><h3>Start over</h3>
         <Opt label="Reset every setting"><button class="btn sm danger" onClick={async () => { if (await ask({ title: 'Reset settings?', body: <p>Cup goes back to how it started. Nothing you installed changes.</p>, ok: 'Reset', danger: true })) { for (const [k, v] of Object.entries(DEFAULTS)) if (k !== 'mid') setSetting(k, v); sfx('restore'); } }}>Reset</button></Opt>
       </section>
@@ -537,7 +567,7 @@ export function Setup({ onDone }) {
         {st.env?.os !== 'windows' && <p class="muted small">Pour may ask for your password once to create its folder.</p>}
         <div class="row-btns center"><button class="btn acc big" disabled={jl?.status === 'running'} onClick={go}>{jl?.status === 'running' ? <i class="spin" /> : <Icon n="installed" />}Install Pour</button>
           <button class="btn ghost" onClick={() => open('https://ipconfig.co.network/pour')}>About Pour</button></div>
-        <div class="cmdline"><code>curl -fsSL https://ipconfig.co.network/pour/install | sh</code><CopyBtn text="curl -fsSL https://ipconfig.co.network/pour/install | sh" /></div>
+        <div class="cmdline"><code><Code shell text="curl -fsSL https://ipconfig.co.network/pour/install | sh" /></code><CopyBtn text="curl -fsSL https://ipconfig.co.network/pour/install | sh" /></div>
         <button class="btn sm ghost" onClick={async () => { const e = await refreshEnv(); if (e.pour) onDone(); else toast('err', 'Pour is still not found'); }}>I installed it — look again</button>
         {jl && <LogBox job={jl} open />}
         {job?.status === 'failed' && <p class="note err">The installer stopped. The log above says why; you can also run the command in a terminal.</p>}
