@@ -170,7 +170,19 @@ if [ -x "${CUP_POUR:-/opt/pour/bin/pour}" ] && [ "${SKIP_UI_TEST:-0}" != 1 ]; th
       pkill -f "playwright.*install" 2>/dev/null || true; sleep 1
       rm -rf "$LOCK" && echo "  removed a stale download lock"
     fi
-    (cd ui && npx --yes playwright install chromium) || warn "the test browser could not be fetched"; fi
+    # Use a browser an earlier download already left in the cache, before fetching anything.
+    pw_find() { find "$HOME/Library/Caches/ms-playwright" -type f -perm -u+x \( -name headless_shell -o -name Chromium -o -name "Google Chrome for Testing" \) 2>/dev/null | head -1; }
+    CHROMIUM=$(pw_find)
+    if [ -z "$CHROMIUM" ]; then
+      # The installer can hang after the download (seen on Node 26): give it 5 minutes, then stop it and use what arrived.
+      (cd ui && npx --yes playwright install --only-shell chromium) & PW=$!
+      for _ in $(seq 300); do kill -0 $PW 2>/dev/null || break; sleep 1; done
+      if kill -0 $PW 2>/dev/null; then pkill -P $PW 2>/dev/null; kill $PW 2>/dev/null; rm -rf "$HOME/Library/Caches/ms-playwright/__dirlock"; warn "the browser installer hung and was stopped"; fi
+      wait $PW 2>/dev/null || true
+      CHROMIUM=$(pw_find)
+    fi
+    if [ -n "$CHROMIUM" ]; then export CHROMIUM; echo "  browser: $CHROMIUM"; else unset CHROMIUM; warn "the test browser could not be fetched"; fi
+  fi
   if (cd ui && CUP_POUR="${CUP_POUR:-/opt/pour/bin/pour}" node build.mjs --plain >/dev/null && CUP_POUR="${CUP_POUR:-/opt/pour/bin/pour}" node test/ui.mjs 2>&1 | tee "$BUILD_CACHE/ui-test.log"; exit "${PIPESTATUS[0]}"); then
     ok "interface test passed (zero page errors, every size fits)"
   else
