@@ -165,7 +165,11 @@ if [ -x "${CUP_POUR:-/opt/pour/bin/pour}" ] && [ "${SKIP_UI_TEST:-0}" != 1 ]; th
   else echo "  fetching the test browser (once, about 150 MB)…"
     # A lock left by an earlier, interrupted download blocks every later one; drop it when nothing is downloading.
     LOCK="$HOME/Library/Caches/ms-playwright/__dirlock"
-    [ -e "$LOCK" ] && ! pgrep -f "playwright.*install" >/dev/null 2>&1 && rm -rf "$LOCK" && echo "  removed a stale download lock"
+    if [ -e "$LOCK" ]; then
+      # An install still running from an earlier, stopped update.sh holds the lock for ever: stop it, then drop the lock.
+      pkill -f "playwright.*install" 2>/dev/null || true; sleep 1
+      rm -rf "$LOCK" && echo "  removed a stale download lock"
+    fi
     (cd ui && npx --yes playwright install chromium) || warn "the test browser could not be fetched"; fi
   if (cd ui && CUP_POUR="${CUP_POUR:-/opt/pour/bin/pour}" node build.mjs --plain >/dev/null && CUP_POUR="${CUP_POUR:-/opt/pour/bin/pour}" node test/ui.mjs 2>&1 | tee "$BUILD_CACHE/ui-test.log"; exit "${PIPESTATUS[0]}"); then
     ok "interface test passed (zero page errors, every size fits)"

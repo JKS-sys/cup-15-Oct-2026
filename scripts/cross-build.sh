@@ -18,7 +18,7 @@ VERSION="${1:?version}"; shift
 WANT="${*:-linux windows freebsd}"
 OUT="${OUT:-release}"
 BUILD_CACHE="${BUILD_CACHE:-${CUP_BUILD_CACHE:-/Users/Shared/cup-build}}"
-IMAGE=cup-cross:5
+IMAGE=cup-cross:6
 mkdir -p "$OUT" "$BUILD_CACHE"
 [ -f ui/dist/index.html ] || { echo "ui/dist/index.html missing — build the interface first"; exit 1; }
 has() { case " $WANT " in *" $1 "*) return 0 ;; *) return 1 ;; esac; }
@@ -122,6 +122,11 @@ docker run --rm --platform "$PLAT" ${NET[@]+"${NET[@]}"} \
         cargo build --release --target "$triple"
       else
         local sr=/sysroot/$deb up
+        # libc.so names the loader by an absolute path (/lib64/... or /lib/...): make sure it is there in the sysroot.
+        for f in $(find "$sr" -name "ld-linux*.so.*" \( -type f -o -type l \) 2>/dev/null); do
+          n=$(basename "$f"); for d in lib lib64; do mkdir -p "$sr/$d"; [ -e "$sr/$d/$n" ] || cp -L "$f" "$sr/$d/$n" 2>/dev/null || true; done
+        done
+        ls "$sr"/lib*/ld-linux* >/dev/null 2>&1 || { echo "  ✗ the $deb sysroot has no ld-linux loader (libc6:$deb was not downloaded)"; return 1; }
         up=$(echo "$triple" | tr a-z- A-Z_)
         env PKG_CONFIG_ALLOW_CROSS=1 PKG_CONFIG_SYSROOT_DIR=$sr PKG_CONFIG_LIBDIR=$sr/usr/lib/$multi/pkgconfig:$sr/usr/share/pkgconfig \
           "CARGO_TARGET_${up}_LINKER=$multi-gcc" "CXX_${triple//-/_}=$multi-g++" "CC_${triple//-/_}=$multi-gcc" \
