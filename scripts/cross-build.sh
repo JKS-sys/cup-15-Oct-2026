@@ -18,7 +18,7 @@ VERSION="${1:?version}"; shift
 WANT="${*:-linux windows freebsd}"
 OUT="${OUT:-release}"
 BUILD_CACHE="${BUILD_CACHE:-${CUP_BUILD_CACHE:-/Users/Shared/cup-build}}"
-IMAGE=cup-cross:6
+IMAGE=cup-cross:7
 mkdir -p "$OUT" "$BUILD_CACHE"
 [ -f ui/dist/index.html ] || { echo "ui/dist/index.html missing — build the interface first"; exit 1; }
 has() { case " $WANT " in *" $1 "*) return 0 ;; *) return 1 ;; esac; }
@@ -82,9 +82,8 @@ RUN --mount=type=secret,id=ca,required=false \
       | grep -E "^[a-z0-9][^ <>]*(:$OTHER)?$" | sort -u > list && \
     (xargs -a list apt-get $CA download >/dev/null 2>&1 || xargs -a list -n 1 apt-get $CA download 2>/dev/null || true) && \
     for d in *.deb; do dpkg -x "$d" /sysroot/$OTHER; done && \
-    for f in $(find /sysroot/$OTHER -name 'ld-linux*.so.*' \( -type f -o -type l \)); do \
-      n=$(basename "$f"); for dir in lib lib64; do mkdir -p /sysroot/$OTHER/$dir; [ -e /sysroot/$OTHER/$dir/$n ] || cp -L "$f" /sysroot/$OTHER/$dir/$n; done; done && \
-    ls /sysroot/$OTHER/lib*/ld-linux* >/dev/null && \
+    for l in $(find /sysroot/$OTHER -type l -lname '/*'); do ln -sfn "/sysroot/$OTHER$(readlink "$l")" "$l"; done && \
+    ls -L /sysroot/$OTHER/lib*/ld-linux* >/dev/null && \
     rm -rf /tmp/debs /var/lib/apt/lists/*
 RUN --mount=type=secret,id=ca,required=false \
     if [ -s /run/secrets/ca ]; then export CURL_CA_BUNDLE=/run/secrets/ca SSL_CERT_FILE=/run/secrets/ca; fi && \
@@ -123,10 +122,9 @@ docker run --rm --platform "$PLAT" ${NET[@]+"${NET[@]}"} \
       else
         local sr=/sysroot/$deb up
         # libc.so names the loader by an absolute path (/lib64/... or /lib/...): make sure it is there in the sysroot.
-        for f in $(find "$sr" -name "ld-linux*.so.*" \( -type f -o -type l \) 2>/dev/null); do
-          n=$(basename "$f"); for d in lib lib64; do mkdir -p "$sr/$d"; [ -e "$sr/$d/$n" ] || cp -L "$f" "$sr/$d/$n" 2>/dev/null || true; done
-        done
-        ls "$sr"/lib*/ld-linux* >/dev/null 2>&1 || { echo "  ✗ the $deb sysroot has no ld-linux loader (libc6:$deb was not downloaded)"; return 1; }
+        # Debian links (e.g. /lib64/ld-linux-x86-64.so.2) point at absolute paths: aim them inside the sysroot.
+        for l in $(find "$sr" -type l -lname "/*" 2>/dev/null); do t=$(readlink "$l"); case "$t" in "$sr"*) ;; *) ln -sfn "$sr$t" "$l" ;; esac; done
+        ls -L "$sr"/lib*/ld-linux* >/dev/null 2>&1 || { echo "  ✗ the $deb sysroot has no ld-linux loader (libc6:$deb was not downloaded)"; return 1; }
         up=$(echo "$triple" | tr a-z- A-Z_)
         env PKG_CONFIG_ALLOW_CROSS=1 PKG_CONFIG_SYSROOT_DIR=$sr PKG_CONFIG_LIBDIR=$sr/usr/lib/$multi/pkgconfig:$sr/usr/share/pkgconfig \
           "CARGO_TARGET_${up}_LINKER=$multi-gcc" "CXX_${triple//-/_}=$multi-g++" "CC_${triple//-/_}=$multi-gcc" \

@@ -173,6 +173,11 @@ if [ -x "${CUP_POUR:-/opt/pour/bin/pour}" ] && [ "${SKIP_UI_TEST:-0}" != 1 ]; th
     # Use a browser an earlier download already left in the cache, before fetching anything.
     pw_find() { find "$HOME/Library/Caches/ms-playwright" -type f -perm -u+x \( -name headless_shell -o -name Chromium -o -name "Google Chrome for Testing" \) 2>/dev/null | head -1; }
     CHROMIUM=$(pw_find)
+    # A download stopped half-way leaves a browser that cannot start: throw it away and fetch it again.
+    if [ -n "$CHROMIUM" ] && ! "$CHROMIUM" --headless --version >/dev/null 2>&1; then
+      echo "  the cached test browser is incomplete — fetching it again"
+      rm -rf "$HOME/Library/Caches/ms-playwright"/chromium* "$HOME/Library/Caches/ms-playwright/__dirlock"; CHROMIUM=""
+    fi
     if [ -z "$CHROMIUM" ]; then
       # The installer can hang after the download (seen on Node 26): give it 5 minutes, then stop it and use what arrived.
       (cd ui && npx --yes playwright install --only-shell chromium) & PW=$!
@@ -180,6 +185,7 @@ if [ -x "${CUP_POUR:-/opt/pour/bin/pour}" ] && [ "${SKIP_UI_TEST:-0}" != 1 ]; th
       if kill -0 $PW 2>/dev/null; then pkill -P $PW 2>/dev/null; kill $PW 2>/dev/null; rm -rf "$HOME/Library/Caches/ms-playwright/__dirlock"; warn "the browser installer hung and was stopped"; fi
       wait $PW 2>/dev/null || true
       CHROMIUM=$(pw_find)
+      [ -n "$CHROMIUM" ] && ! "$CHROMIUM" --headless --version >/dev/null 2>&1 && CHROMIUM=""
     fi
     if [ -n "$CHROMIUM" ]; then export CHROMIUM; echo "  browser: $CHROMIUM"; else unset CHROMIUM; warn "the test browser could not be fetched"; fi
   fi
