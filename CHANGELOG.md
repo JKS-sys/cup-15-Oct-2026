@@ -2,6 +2,8 @@
 
 
 ## Unreleased
+
+## Cup 1.0.3 — 08-Nov-2026
 - Secrets come from the ipconfig dashboard vault (key from the keychain or the gh sign-in); `update.sh` no longer needs a `.env`, and every `.env*` stays out of the repo.
 - Crash reports: panics and failed requests are saved locally and sent as one batch to the accounts API on the next start; Settings → Problems lists, copies and clears them.
 - Commands, paths, flags, versions, links and brackets (by depth) are coloured in every command line and log box; log lines slide in and running log boxes show a moving sweep.
