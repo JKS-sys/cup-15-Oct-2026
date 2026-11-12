@@ -29,6 +29,18 @@ export const toast = (kind, text, at) => toastFn(kind, text, at);
  * Runs `pour <args>` as a visible job.
  * opts: title, sound (start), done (sound on success), risk (asks Rust for a one-time code), after()
  */
+// A voice per kind of log line, at most four a second, and never for plain output.
+const LINE_SFX = { step: 'logStep', cmd: 'logCmd', ok: 'logOk', warn: 'logWarn', err: 'logErr', errline: 'logErr', hint: 'logHint' };
+let lineAt = 0;
+function lineSound(k) {
+  const n = LINE_SFX[k];
+  if (!n) return;
+  const now = Date.now();
+  if (now - lineAt < 250 && k !== 'err') return;
+  lineAt = now;
+  sfx(n);
+}
+
 export async function runJob(args, { title, start = 'start', done = 'success', risky = false, after, at, op } = {}) {
   const id = newJob();
   const job = { id, title: title || `pour ${args.join(' ')}`, args, lines: [], status: 'running', started: Date.now(), ended: 0, code: null, problems: 0 };
@@ -41,6 +53,7 @@ export async function runJob(args, { title, start = 'start', done = 'success', r
       if (k === 'skip') continue;
       job.lines.push({ t: l, k: stream === 'err' && k === 'out' ? 'warn' : k });
       if (k === 'err' || k === 'errline') job.problems++;
+      lineSound(k);
     }
     if (job.lines.length > MAX_LINES) job.lines.splice(0, job.lines.length - MAX_LINES);
     jobs.set({ list: [...jobs.get().list] });

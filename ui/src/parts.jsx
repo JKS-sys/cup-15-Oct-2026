@@ -328,20 +328,41 @@ export function Code({ text = '', shell = false }) {
 }
 
 // ---- Log box: live status, counts and a badge per line kind.
-const BADGE = { step: '➤', cmd: '▶', ok: '✓', err: '✗', errline: '!', warn: '⚠', hint: '?', out: '' };
+// Each kind of line has its own drawn mark and colour.
+const LINE_ICON = {
+  step: 'M3 8h8M8 4l4 4-4 4', cmd: 'M4 3l8 5-8 5z', ok: 'M3 8.5l3.5 3.5L13 4.5', err: 'M4 4l8 8M12 4l-8 8', errline: 'M8 3v6M8 12v.5',
+  warn: 'M8 2.5l6 11H2zM8 7v3M8 12v.4', hint: 'M6 6a2 2 0 1 1 3 1.8c-.7.4-1 .8-1 1.7M8 12v.4', out: 'M5 8h6',
+};
+const LINE_HUE = { step: 'c-violet', cmd: 'c-blue', ok: 'c-green', err: 'c-red', errline: 'c-red', warn: 'c-amber', hint: 'c-cyan', out: 'c-sep' };
+const LineIcon = ({ k }) => <svg class={`li ${LINE_HUE[k] || 'c-sep'}`} viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d={LINE_ICON[k] || LINE_ICON.out} pathLength="1" /></svg>;
+const LOG_FILTERS = [['all', 'All', null], ['problems', 'Problems', ['err', 'errline']], ['warn', 'Warnings', ['warn']], ['steps', 'Steps', ['step', 'cmd', 'ok']]];
+
+/** A strip showing what a run was made of: one coloured piece per kind of line. */
+function LogMix({ lines }) {
+  const n = {};
+  for (const l of lines) { const k = l.k === 'errline' ? 'err' : l.k; n[k] = (n[k] || 0) + 1; }
+  const total = lines.length || 1;
+  return <span class="lb-mix" title={Object.entries(n).map(([k, v]) => `${v} ${k}`).join(' · ')}>{['ok', 'step', 'cmd', 'out', 'hint', 'warn', 'err'].filter((k) => n[k]).map((k) => <i class={LINE_HUE[k]} style={{ flexGrow: n[k] / total }} />)}</span>;
+}
+
 export function LogBox({ job, open: startOpen = false }) {
   const [openState, setOpen] = useState(startOpen);
+  const [filter, setFilter] = useState('all');
+  const [q, setQ] = useState('');
   const ref = useRef();
-  useEffect(() => { const el = ref.current; if (el && openState) el.scrollTop = el.scrollHeight; }, [job.lines.length, openState]);
+  useEffect(() => { const el = ref.current; if (el && openState && filter === 'all' && !q) el.scrollTop = el.scrollHeight; }, [job.lines.length, openState]);
   const secs = Math.round(((job.ended || Date.now()) - job.started) / 1000);
   const warn = job.lines.filter((l) => l.k === 'warn').length;
+  const kinds = LOG_FILTERS.find((f) => f[0] === filter)?.[2];
+  const needle = q.trim().toLowerCase();
+  const shown = job.lines.map((l, i) => [l, i + 1]).filter(([l]) => (!kinds || kinds.includes(l.k)) && (!needle || l.t.toLowerCase().includes(needle)));
   return (
     <section class={`logbox s-${job.status}`}>
-      <header class="logbar" onClick={() => { setOpen(!openState); sfx(openState ? 'close' : 'open'); }}>
-        <span class={`dot d-${job.status}`} />
+      <header class="logbar" onClick={() => { setOpen(!openState); sfx(openState ? 'close' : 'unfold'); }}>
+        {job.status === 'running' ? <span class="eq" aria-hidden="true"><i /><i /><i /><i /></span> : <span class={`dot d-${job.status}`} />}
         <b class="clamp">{job.title}</b>
         <span class="grow" />
-        <span class="muted">{job.status === 'running' ? 'running' : job.status === 'ok' ? 'done' : job.status}</span>
+        <span class={`lb-state st-${job.status}`}>{job.status === 'running' ? 'running' : job.status === 'ok' ? 'done' : job.status}</span>
         <span class="ct-n">{secs}s</span>
         <span class="muted"><span class="ct-n">{job.lines.length}</span> lines</span>
         {job.problems > 0 && <span class="badge b-err">{job.problems} problem{job.problems > 1 ? 's' : ''}</span>}
@@ -349,8 +370,15 @@ export function LogBox({ job, open: startOpen = false }) {
         {job.status === 'running' && <button class="btn sm ghost" onClick={(e) => { e.stopPropagation(); cancelJob(job.id); }}><Icon n="stop" size={13} />Stop</button>}
         <CopyBtn text={job.lines.map((l) => l.t).join('\n')} />
       </header>
+      <LogMix lines={job.lines} />
       {job.status === 'running' && <i class="lb-sweep" aria-hidden="true" />}
-      {openState && <div class="log" ref={ref}>{job.lines.map((l) => <div class={`ll k-${l.k}`}><i>{BADGE[l.k]}</i><span><Code shell={l.k === 'cmd'} text={l.t} /></span></div>)}</div>}
+      {openState && (
+        <div class="lb-tools">
+          <div class="chips">{LOG_FILTERS.map(([id, label, ks]) => { const c = ks ? job.lines.filter((l) => ks.includes(l.k)).length : job.lines.length; return <button class={`chip lf-${id}${filter === id ? ' on' : ''}`} onClick={() => { setFilter(id); sfx('filter'); }}>{label} <span class="ct-n">{c}</span></button>; })}</div>
+          <input class="lb-find" type="search" placeholder="Find in this log" value={q} onInput={(e) => setQ(e.currentTarget.value)} aria-label="Find in this log" />
+        </div>
+      )}
+      {openState && <div class="log" ref={ref}>{shown.length ? shown.map(([l, n]) => <div class={`ll k-${l.k}`}><em class="ln">{n}</em><LineIcon k={l.k} /><span><Code shell={l.k === 'cmd'} text={l.t} /></span></div>) : <div class="ll k-out"><span class="muted">No lines match.</span></div>}</div>}
     </section>
   );
 }

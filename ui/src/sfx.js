@@ -89,9 +89,18 @@ export const SOUNDS = {
     noise(a, o, { at: 0, dur: 0.7, from: 500, to: 2600, gain: 0.04 }); bubbles(a, o, 12, true, 0.05);
     [261.6, 329.6, 392, 523.3, 659.3, 784].forEach((f, i) => tone(a, o, { f, type: 'triangle', at: 0.6 + i * 0.07, dur: 0.9, gain: 0.04, attack: 0.02 }));
   },
+  // Log lines: one small voice per kind of line, so a run can be followed by ear.
+  logStep: (a, o) => tone(a, o, { f: 660, f2: 880, type: 'triangle', dur: 0.06, gain: 0.035 }),
+  logCmd: (a, o) => { tone(a, o, { f: 440, type: 'square', dur: 0.025, gain: 0.02 }); tone(a, o, { f: 880, at: 0.03, dur: 0.03, gain: 0.02 }); },
+  logOk: (a, o) => [1047, 1568].forEach((f, i) => tone(a, o, { f, at: i * 0.045, dur: 0.07, gain: 0.035 })),
+  logWarn: (a, o) => [740, 622].forEach((f, i) => tone(a, o, { f, type: 'triangle', at: i * 0.07, dur: 0.09, gain: 0.04 })),
+  logErr: (a, o) => { tone(a, o, { f: 220, f2: 150, type: 'sawtooth', dur: 0.16, gain: 0.04 }); noise(a, o, { dur: 0.08, from: 400, to: 200, gain: 0.02 }); },
+  logHint: (a, o) => tone(a, o, { f: 1320, f2: 1760, dur: 0.05, gain: 0.025 }),
+  filter: (a, o) => { noise(a, o, { dur: 0.09, from: 3000, to: 900, gain: 0.025 }); tone(a, o, { f: 1400, at: 0.05, dur: 0.04, gain: 0.025 }); },
+  unfold: (a, o) => [523, 659, 784].forEach((f, i) => tone(a, o, { f, type: 'triangle', at: i * 0.03, dur: 0.06, gain: 0.03 })),
   sparkle: (a, o) => [2093, 2637, 3136, 3951].forEach((f, i) => tone(a, o, { f, at: i * 0.035, dur: 0.08, gain: 0.025 })),
 };
-export const CHATTER = new Set(['tick', 'nav', 'key', 'hover', 'open', 'close', 'search', 'select', 'on', 'off']);
+export const CHATTER = new Set(['logStep', 'logCmd', 'logOk', 'logWarn', 'logErr', 'logHint', 'tick', 'nav', 'key', 'hover', 'open', 'close', 'search', 'select', 'on', 'off']);
 const TINY = new Set(['tick', 'nav', 'key', 'hover']);
 let lastTiny = [];
 
@@ -149,6 +158,7 @@ const P = {
   wave: 'M10 70c10-20 20-20 30 0s20 20 30 0 20-20 30 0',
   swirl: 'M60 60m-30 0a30 30 0 1 0 60 0a24 24 0 1 0-48 0a18 18 0 1 0 36 0',
   palette: 'M60 18a42 42 0 1 0 0 84c8 0 10-8 4-14-4-6 0-12 8-12h12a18 18 0 0 0 18-18c0-22-18-40-42-40zM40 44a4 4 0 1 0 .1 0M60 34a4 4 0 1 0 .1 0M80 44a4 4 0 1 0 .1 0',
+  funnel: 'M22 26h76L70 60v30l-20 10V60z',
   hand: 'M40 96V58l-8-12M40 58V28a6 6 0 0 1 12 0v26M52 54V22a6 6 0 0 1 12 0v32M64 54V26a6 6 0 0 1 12 0v34M76 58V40a6 6 0 0 1 12 0v30c0 16-10 26-26 26H40',
 };
 const S = (paths, hue = 'acc', extra = '') => ({ paths, hue, extra });
@@ -164,6 +174,9 @@ export const SCENES = {
   start: S(['play'], 'c-blue'), cancel: S(['hand'], 'c-orange'), success: S(['ring', 'check'], 'c-green'), error: S(['ring', 'cross'], 'c-red'),
   warn: S(['bell', 'cross'], 'c-orange'), confirm: S(['hand', 'check'], 'c-amber'), star: S(['star'], 'acc'), welcome: S(['cup', 'star'], 'acc'),
   splash: S(['cup', 'stream'], 'acc'), sparkle: S(['spark'], 'acc'),
+  logStep: S(['arrowUp', 'list'], 'c-violet'), logCmd: S(['play', 'list'], 'c-blue'), logOk: S(['list', 'check'], 'c-green'),
+  logWarn: S(['list', 'bell'], 'c-amber'), logErr: S(['list', 'cross'], 'c-red'), logHint: S(['magnifier', 'key'], 'c-cyan'),
+  filter: S(['funnel', 'spark'], 'c-teal'), unfold: S(['doc', 'arrowDown'], 'c-blue'),
 };
 
 let live = 0;

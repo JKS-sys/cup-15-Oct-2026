@@ -301,3 +301,23 @@ body.dragsel,body.dragsel *{user-select:none!important;cursor:cell!important}
 .crash-list{display:grid;gap:6px;max-height:260px;overflow:auto}.crash-list .row{font-family:var(--mono,ui-monospace,monospace);font-size:12px}
 @media (prefers-reduced-motion:reduce){.lb-sweep,.ll{animation:none}}
 body[data-motion=off] .lb-sweep,body[data-motion=off] .ll{animation:none}
+.li{flex:0 0 14px;margin-top:3px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.li path{stroke-dasharray:1;stroke-dashoffset:1;animation:lidraw .35s ease-out .05s forwards}@keyframes lidraw{to{stroke-dashoffset:0}}
+.ln{flex:0 0 auto;min-width:3ch;text-align:right;font-style:normal;color:var(--c-sep);font-variant-numeric:tabular-nums;user-select:none}
+.ll.k-err,.ll.k-errline{background:color-mix(in srgb,var(--c-red) 9%,transparent)}.ll.k-warn{background:color-mix(in srgb,var(--c-amber) 8%,transparent)}
+.ll.k-step>span{color:var(--c-violet);font-weight:650}.ll.k-ok>span{color:var(--c-green)}.ll.k-hint>span{color:var(--c-cyan)}
+.lb-mix{display:flex;height:3px;gap:1px;margin:0 12px 6px;border-radius:2px;overflow:hidden}.lb-mix i{background:currentColor;min-width:3px;flex-basis:0}
+.lb-tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:6px 12px;border-top:1px solid var(--bdr);min-width:0}
+.lb-tools .chips{flex:1 1 auto;min-width:0}.lb-find{flex:1 1 140px;min-width:0;max-width:260px;background:var(--s2);border:1px solid var(--bdr);border-radius:8px;color:var(--fg);padding:4px 8px;font:inherit;font-size:12.5px}
+.chip.on{border-color:var(--h,var(--acc));color:var(--h,var(--acc));background:color-mix(in srgb,var(--h,var(--acc)) 12%,var(--s2))}
+.lf-all{--h:var(--c-blue)}.lf-problems{--h:var(--c-red)}.lf-warn{--h:var(--c-amber)}.lf-steps{--h:var(--c-violet)}
+.lb-state.st-running{color:var(--c-cyan)}.lb-state.st-ok{color:var(--c-green)}.lb-state.st-failed,.lb-state.st-error{color:var(--c-red)}.lb-state.st-cancelled{color:var(--c-orange)}
+.eq{display:inline-flex;align-items:flex-end;gap:2px;height:12px;width:14px;flex:0 0 14px}.eq i{flex:1;height:100%;border-radius:1px;transform-origin:bottom;animation:eq .9s ease-in-out infinite}
+.eq i:nth-child(1){background:var(--c-cyan)}.eq i:nth-child(2){background:var(--c-teal);animation-delay:.15s}.eq i:nth-child(3){background:var(--c-lime);animation-delay:.3s}.eq i:nth-child(4){background:var(--c-amber);animation-delay:.45s}
+@keyframes eq{0%,100%{transform:scaleY(.25)}50%{transform:scaleY(1)}}
+.log-stats{margin-bottom:12px}.log-stats .stat b{font-size:20px}
+/* Nothing may sit on top of its neighbour when the window shrinks: rows wrap, text gives way first. */
+.row,.row-btns,.logbar,.sh-actions,.opt,.page>header,.hero{flex-wrap:wrap}
+.row>*,.logbar>*,.opt>*,.row-btns>*{min-width:0}.btn,.badge,.chip{flex-shrink:0;white-space:nowrap}.row-main{flex:1 1 120px}
+@media (prefers-reduced-motion:reduce){.li path,.eq i{animation:none;stroke-dashoffset:0}}
+body[data-motion=off] .li path,body[data-motion=off] .eq i{animation:none;stroke-dashoffset:0}

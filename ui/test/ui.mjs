@@ -67,6 +67,29 @@ await page.click('.nav[title="Log"]');
 if (await page.locator('.logbox .logbar').count()) await page.locator('.logbox .logbar').first().click();
 if (shots) await page.screenshot({ path: join(shotDir, 'log.png') });
 
+// Log tools: a run to look at, its filters, search and line marks.
+await page.click('.nav[title="Care"]');
+await page.click('.nav[title="Log"]');
+if (!(await page.locator('.logbox').count())) {
+  await page.click('.nav[title="Care"]');
+  await page.locator('button:has-text("Update now")').first().click();
+  await sleep(6000);
+  await page.click('.nav[title="Log"]');
+}
+await page.waitForSelector('.logbox', { timeout: 20000 });
+if (await page.locator('.logbox').count()) {
+  if (!(await page.locator('.lb-tools').count())) await page.locator('.logbox .logbar').first().click();
+  await page.waitForSelector('.lb-tools .chip');
+  if (shots) await page.screenshot({ path: join(shotDir, 'log.png') });
+  check(await page.locator('.log .ll svg.li').count() > 0, 'log lines carry a drawn mark');
+  check(await page.locator('.log-stats .stat').count() === 6, 'log page shows six summary tiles');
+  await page.click('.lb-tools .chip.lf-problems');
+  check(await page.locator('.lb-tools .chip.lf-problems.on').count() === 1, 'log filter switches');
+  await page.fill('.lb-find', 'zzzz-no-such-line');
+  check((await page.locator('.log').first().textContent()).includes('No lines match'), 'log search narrows the lines');
+  await page.fill('.lb-find', ''); await page.click('.lb-tools .chip.lf-all');
+}
+
 // Sizes and drag-select on Installed (jq and oniguruma are installed in the test prefix).
 await page.click('.nav[title="Installed"]');
 await page.waitForSelector('.row.pk .size', { timeout: 20000 });
@@ -126,6 +149,15 @@ for (const [w, h] of sizes) {
       for (const el of document.querySelectorAll('.content *')) {
         const r = el.getBoundingClientRect();
         if (r.width && r.right > vw + 1 && !scrollers(el)) { out.push(`${el.tagName}.${el.className} ${Math.round(r.right)}>${vw}`); if (out.length > 4) break; }
+      }
+      // Overlap: no two controls that share a parent may sit on top of each other.
+      for (const par of document.querySelectorAll('.content .row, .content .logbar, .content .row-btns, .content .opt, .content .lb-tools, .content header')) {
+        const kids = [...par.children].filter((k) => { const r = k.getBoundingClientRect(); return r.width > 1 && r.height > 1 && getComputedStyle(k).position !== 'absolute'; });
+        for (let i = 0; i < kids.length; i++) for (let j = i + 1; j < kids.length; j++) {
+          const a = kids[i].getBoundingClientRect(), b = kids[j].getBoundingClientRect();
+          const w = Math.min(a.right, b.right) - Math.max(a.left, b.left), h = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+          if (w > 2 && h > 2 && out.length < 6) out.push(`overlap ${kids[i].className || kids[i].tagName} × ${kids[j].className || kids[j].tagName} in .${par.className}`);
+        }
       }
       return out;
     });

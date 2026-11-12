@@ -411,6 +411,11 @@ export function Log() {
       <H title="Log" sub="Every Pour command Cup ran, with its full output">
         <button class="btn ghost" disabled={!j.list.length} onClick={() => { clearJobs(); sfx('clean'); }}>Clear finished</button>
       </H>
+      {j.list.length > 0 && (() => {
+        const n = (s) => j.list.filter((x) => x.status === s).length;
+        const tiles = [['Runs', j.list.length, 'c-blue'], ['Done', n('ok'), 'c-green'], ['Running', n('running'), 'c-cyan'], ['Failed', j.list.length - n('ok') - n('running'), 'c-red'], ['Lines', j.list.reduce((a, x) => a + x.lines.length, 0), 'c-violet'], ['Warnings', j.list.reduce((a, x) => a + x.lines.filter((l) => l.k === 'warn').length, 0), 'c-amber']];
+        return <div class="stats log-stats">{tiles.map(([t, v, h]) => <div class="stat" style={{ '--h': `var(--${h})`, cursor: 'default' }}><b class="ct-n">{v}</b><span>{t}</span></div>)}</div>;
+      })()}
       {j.list.length ? j.list.map((x, i) => <LogBox job={x} key={x.id} open={i === 0} />) : <Empty icon="log" title="Nothing has run yet" />}
     </div>
   );

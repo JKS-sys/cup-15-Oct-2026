@@ -2,6 +2,12 @@
 
 
 ## Unreleased
+- Log boxes: a drawn mark, colour and sound for each kind of line, a colour strip of what the run was made of, filters (All, Problems, Warnings, Steps), search, line numbers, and summary tiles on the Log page.
+- Nine new sounds, each with its own scene.
+- Rows, bars and headers wrap instead of overlapping when the window shrinks; the interface test now checks for overlap at six window sizes.
+- `features.md` lists what Cup does, for the website.
+
+## Unreleased
 
 ## Cup 1.0.3 — 08-Nov-2026
 - Secrets come from the ipconfig dashboard vault (key from the keychain or the gh sign-in); `update.sh` no longer needs a `.env`, and every `.env*` stays out of the repo.
